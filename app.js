@@ -66,6 +66,11 @@ const remote = {
   board(t, day) { return this.rpc("ag_board", { p_token: t, p_day: day }); },
   assign(t, day, member, zones, note) { return this.rpc("ag_assign_set", { p_token: t, p_day: day, p_member: member, p_zones: zones, p_note: note }); },
   done(t, day, zone, flag) { return this.rpc("ag_done_set", { p_token: t, p_day: day, p_zone: zone, p_done: flag }); },
+  memberDelete(t, id) { return this.rpc("ag_member_delete", { p_token: t, p_id: id }); },
+  memberOrder(t, ids) { return this.rpc("ag_member_order", { p_token: t, p_ids: ids }); },
+  zoneSave(t, old, code, label) { return this.rpc("ag_zone_save", { p_token: t, p_old: old || null, p_code: code, p_label: label }); },
+  zoneDelete(t, code) { return this.rpc("ag_zone_delete", { p_token: t, p_code: code }); },
+  zoneOrder(t, codes) { return this.rpc("ag_zone_order", { p_token: t, p_codes: codes }); },
   memberSave(t, m) { return this.rpc("ag_member_save", { p_token: t, p_id: m.id || null, p_name: m.name, p_role: m.role, p_pin: m.pin || null, p_sort: m.sort, p_active: m.active }); },
 };
 
@@ -91,9 +96,10 @@ const demo = {
         { day: t, member: "m2", zones: ["6A", "6B", "7A", "7B"], note: "" },
         { day: t, member: "m3", zones: ["8A", "9A", "9B", "10A"], note: "" },
         { day: t, member: "m4", zones: ["11A", "12A", "13A", "14A"], note: "" },
-      ], done: [{ day: t, zone: "B1", member: "m0" }, { day: t, zone: "3F", member: "m1" }], sessions: {} };
+      ], zones: ZONES.map(z => ({ ...z })), done: [{ day: t, zone: "B1", member: "m0" }, { day: t, zone: "3F", member: "m1" }], sessions: {} };
       save(DEMO_KEY, d);
     }
+    if (!d.zones) d.zones = ZONES.map(z => ({ ...z }));
     return d;
   },
   put(d) { save(DEMO_KEY, d); },
@@ -119,7 +125,7 @@ const demo = {
     const m = this.me(t), d = this.db();
     return { me: { id: m.id, name: m.name, role: m.role }, today: today(),
       members: d.members.filter(x => x.active).sort((a, b) => a.sort - b.sort).map(({ id, name, role, sort }) => ({ id, name, role, sort })),
-      zones: ZONES, assign: this.eff(d, day), done: d.done.filter(x => x.day === day) };
+      zones: d.zones, assign: this.eff(d, day), done: d.done.filter(x => x.day === day) };
   },
   async assign(t, day, member, zones, note) {
     const m = this.me(t); if (m.role !== "manager") throw new Error("FORBIDDEN");
@@ -142,6 +148,29 @@ const demo = {
     if (!p.id) { if (!p.pin) throw new Error("비밀번호 4자리를 정해 주세요"); const id = "m" + Date.now(); d.members.push({ id, name: p.name.trim(), role: p.role, pin: p.pin, sort: p.sort ?? 99, active: true }); this.put(d); return id; }
     const m = d.members.find(x => x.id === p.id); Object.assign(m, { name: p.name.trim(), role: p.role, sort: p.sort ?? m.sort, active: p.active }); if (p.pin) m.pin = p.pin; this.put(d); return m.id;
   },
+  mgr(t) { const m = this.me(t); if (m.role !== "manager") throw new Error("FORBIDDEN"); return m; },
+  async memberDelete(t, id) {
+    const me = this.mgr(t); if (id === me.id) throw new Error("내 계정은 삭제할 수 없어요");
+    const d = this.db(); d.members = d.members.filter(x => x.id !== id); d.assign = d.assign.filter(x => x.member !== id); this.put(d);
+  },
+  async memberOrder(t, ids) { this.mgr(t); const d = this.db(); ids.forEach((id, i) => { const m = d.members.find(x => x.id === id); if (m) m.sort = i; }); this.put(d); },
+  async zoneSave(t, old, code, label) {
+    this.mgr(t); const d = this.db(), zs = d.zones; code = String(code || "").trim().toUpperCase();
+    if (!/^[A-Z0-9]{1,6}$/.test(code)) throw new Error("층 이름은 영어·숫자 6자 이내예요 (예: 5A, B1)");
+    if (!String(label || "").trim()) throw new Error("설명을 적어 주세요 (예: 5층 A)");
+    if (code !== old && zs.some(z => z.code === code)) throw new Error("이미 있는 층이에요");
+    if (!old) zs.push({ code, label: label.trim() });
+    else {
+      Object.assign(zs.find(z => z.code === old), { code, label: label.trim() });
+      if (code !== old) { d.assign.forEach(a => (a.zones = a.zones.map(z => (z === old ? code : z)))); d.done.forEach(x => { if (x.zone === old) x.zone = code; }); }
+    }
+    this.put(d);
+  },
+  async zoneDelete(t, code) {
+    this.mgr(t); const d = this.db();
+    d.zones = d.zones.filter(z => z.code !== code); d.assign.forEach(a => (a.zones = a.zones.filter(z => z !== code))); d.done = d.done.filter(x => x.zone !== code); this.put(d);
+  },
+  async zoneOrder(t, codes) { this.mgr(t); const d = this.db(); d.zones.sort((a, b) => codes.indexOf(a.code) - codes.indexOf(b.code)); this.put(d); },
 };
 
 // ── 상태 ──
@@ -168,6 +197,7 @@ function toast(msg) {
 }
 function errMsg(e) {
   if (e?.code === "42501" || /FORBIDDEN/.test(e?.message)) return "이 일은 매니저만 할 수 있어요.";
+  if (missingFn(e)) return "서버 업데이트가 필요해요 (admin.sql 실행).";
   if (e instanceof TypeError) return "인터넷 연결을 확인해 주세요.";
   return e?.message || "잠시 후 다시 해 주세요.";
 }
@@ -257,19 +287,19 @@ async function pressKey(k) {
 // ── 앱 화면 ──
 function navItems() {
   const items = [["me", "내 업무", I.me], ["all", "전체 보기", I.all]];
-  if (isMgr()) items.push(["assign", "업무 배정", I.assign], ["team", "크루 관리", I.team]);
+  if (isMgr()) items.push(["assign", "업무 배정", I.assign], ["admin", "관리자 설정", I.team]);
   return items;
 }
 function render() {
   if (!S.board) return;
   const me = S.board.me, nav = navItems();
-  const views = { me: viewMe, all: viewAll, assign: viewAssign, team: viewTeam };
-  if (!views[S.view] || (!isMgr() && (S.view === "assign" || S.view === "team"))) S.view = "me";
+  const views = { me: viewMe, all: viewAll, assign: viewAssign, admin: viewAdmin };
+  if (!views[S.view] || (!isMgr() && (S.view === "assign" || S.view === "admin"))) S.view = "me";
   const banner = S.mode === "demo" ? `<span class="mode-banner">체험 모드<span class="d-only"> · 이 기기에만 저장</span></span>` : "";
   $root.innerHTML = `<div class="app">
     <aside class="side" aria-label="메뉴">
       <div class="brand"><span class="mark">${I.leaf}</span><div><b>아지트 가드너</b><span>KAKAO AGIT · LINKAGELAB</span></div></div>
-      <nav class="nav"><h6>메뉴</h6>${nav.slice(0, 2).map(navBtn).join("")}${nav.length > 2 ? `<h6>매니저</h6>${nav.slice(2).map(navBtn).join("")}` : ""}</nav>
+      <nav class="nav"><h6>메뉴</h6>${nav.slice(0, 2).map(navBtn).join("")}${nav.length > 2 ? `<h6>관리자</h6>${nav.slice(2).map(navBtn).join("")}` : ""}</nav>
       <div class="side__me">${avatar(me, "av--sm")}<div><b>${esc(me.name)}</b><small>${me.role === "manager" ? "매니저" : "가드너"}</small></div><button class="btn btn--ghost" data-act="logout">나가기</button></div>
     </aside>
     <main class="main" id="main">
@@ -314,7 +344,7 @@ function viewMe() {
       const d = doneOf(z), can = isToday || isMgr();
       return `<article class="tile ${d ? "done" : ""}" style="--i:${i}">
         <div class="tile__z"><div><b>${esc(z)}</b><span>${esc(zoneLabel(z))}</span></div><span class="check" aria-hidden="true">${I.check}</span></div>
-        ${d ? `<button class="btn btn--wide" data-act="done" data-z="${esc(z)}" data-f="0" ${can ? "" : "disabled"}>다 했어요 ✓ <small style="font-weight:700;color:var(--ink-3)">· 다시 누르면 취소</small></button>`
+        ${d ? `<button class="btn btn--wide" data-act="done" data-z="${esc(z)}" data-f="0" ${can ? "" : "disabled"}><span class="undo"><b>다 했어요 ✓</b><small>잘못 눌렀으면 다시 누르기</small></span></button>`
             : `<button class="btn btn--main btn--wide" data-act="done" data-z="${esc(z)}" data-f="1" ${can ? "" : "disabled"}>${I.check} 다 했어요</button>`}
       </article>`;
     }).join("")}</div>`;
@@ -370,17 +400,30 @@ function viewAssign() {
     }).join("")}</div>`;
 }
 
-// 크루 관리 (매니저)
-function viewTeam() {
-  return `<header class="head"><h1>크루 관리</h1><p>이름, 역할, 로그인 비밀번호(숫자 4자리)를 정해요.</p></header>
-    <div class="rows">${S.board.members.map((m, i) => `<article class="row">${avatar(m, "av--lg")}
-      <div class="row__body"><div class="row__who"><b>${esc(m.name)}${m.id === S.board.me.id ? '<span class="tag tag--me">나</span>' : ""}</b><small>${m.role === "manager" ? "매니저 · 업무 배정 가능" : "가드너"}</small></div></div>
-      <div style="display:flex;gap:.4rem">
-        <button class="btn btn--sm btn--ghost" data-act="move" data-id="${esc(m.id)}" data-n="-1" aria-label="위로" ${i === 0 ? "disabled" : ""}>${I.up}</button>
-        <button class="btn btn--sm btn--ghost" data-act="move" data-id="${esc(m.id)}" data-n="1" aria-label="아래로" ${i === S.board.members.length - 1 ? "disabled" : ""}>${I.down}</button>
-        <button class="btn btn--sm" data-act="edit-member" data-id="${esc(m.id)}">고치기</button></div></article>`).join("")}</div>
-    <button class="btn btn--ink" data-act="edit-member" data-id="" style="align-self:flex-start">${I.plus} 크루 추가</button>
-    <p class="hint">로그인 화면에는 이름이 보여요. 비밀번호를 잊으면 여기서 새로 정해 주면 돼요. 5번 틀리면 5분 동안 잠겨요.</p>`;
+// 관리자 설정 (매니저): 크루 목록 · 층 목록
+function viewAdmin() {
+  const tab = S.adminTab || "crew";
+  const seg = `<div class="seg" role="group" aria-label="설정 종류"><button data-act="admintab" data-t="crew" aria-pressed="${tab === "crew"}">크루 목록 <span class="num">${S.board.members.length}</span></button><button data-act="admintab" data-t="zone" aria-pressed="${tab === "zone"}">층 목록 <span class="num">${S.board.zones.length}</span></button></div>`;
+  const arrows = (kind, id, i, n) => `<button class="btn btn--sm btn--ghost" data-act="move" data-k="${kind}" data-id="${esc(id)}" data-n="-1" aria-label="위로" ${i === 0 ? "disabled" : ""}>${I.up}</button><button class="btn btn--sm btn--ghost" data-act="move" data-k="${kind}" data-id="${esc(id)}" data-n="1" aria-label="아래로" ${i === n - 1 ? "disabled" : ""}>${I.down}</button>`;
+  if (tab === "zone") {
+    return `<header class="head"><h1>관리자 설정</h1><p>층 이름과 설명, 순서를 정해요. 바꾸면 모든 크루 화면에 바로 반영돼요.</p></header>${seg}
+    <div class="rows">${S.board.zones.map((z, i, a) => {
+      const own = ownersOf(z.code);
+      return `<article class="row row--admin"><span class="zcode">${esc(z.code)}</span>
+      <div class="row__body"><div class="row__who"><b>${esc(z.label)}</b><small>${own.length ? "담당 · " + esc(own.map(o => o.name).join(", ")) : "담당 없음"}</small></div></div>
+      <div class="row__acts">${arrows("zone", z.code, i, a.length)}<button class="btn btn--sm" data-act="edit-zone" data-id="${esc(z.code)}">수정</button><button class="btn btn--sm btn--danger" data-act="ask-del" data-k="zone" data-id="${esc(z.code)}">삭제</button></div></article>`;
+    }).join("")}</div>
+    <button class="btn btn--ink add-btn" data-act="edit-zone" data-id="">${I.plus} 층 추가</button>`;
+  }
+  return `<header class="head"><h1>관리자 설정</h1><p>크루 이름·역할·비밀번호를 정해요. 바꾸면 로그인 화면과 모든 크루 화면에 바로 반영돼요.</p></header>${seg}
+    <div class="rows">${S.board.members.map((m, i, a) => {
+      const zs = sortZones(assignOf(m.id)?.zones || []), mine = m.id === S.board.me.id;
+      return `<article class="row row--admin">${avatar(m, "av--lg")}
+      <div class="row__body"><div class="row__who"><b>${esc(m.name)}${mine ? '<span class="tag tag--me">나</span>' : ""}</b><small>${m.role === "manager" ? "매니저" : "가드너"} · ${zs.length ? esc(zs.join(", ")) : "맡은 층 없음"}</small></div></div>
+      <div class="row__acts">${arrows("member", m.id, i, a.length)}<button class="btn btn--sm" data-act="edit-member" data-id="${esc(m.id)}">수정</button>${mine ? "" : `<button class="btn btn--sm btn--danger" data-act="ask-del" data-k="member" data-id="${esc(m.id)}">삭제</button>`}</div></article>`;
+    }).join("")}</div>
+    <button class="btn btn--ink add-btn" data-act="edit-member" data-id="">${I.plus} 크루 추가</button>
+    <p class="hint">비밀번호를 잊으면 '수정'에서 새로 정해 주세요. 5번 틀리면 5분 동안 잠겨요. 내 계정은 삭제할 수 없어요.</p>`;
 }
 
 // ── 시트 ──
@@ -407,9 +450,27 @@ function renderSheet() {
         <div class="field"><label for="m-name">이름</label><input id="m-name" value="${esc(s.name)}" maxlength="20" autocomplete="off" ${isNew ? "autofocus" : ""}></div>
         <div class="field"><span>역할</span><div class="seg" role="group"><button data-act="role" data-r="crew" aria-pressed="${s.role === "crew"}">가드너</button><button data-act="role" data-r="manager" aria-pressed="${s.role === "manager"}">매니저</button></div><small>매니저는 업무 배정과 크루 관리를 할 수 있어요.</small></div>
         <div class="field"><label for="m-pin">${isNew ? "비밀번호 (숫자 4자리)" : "새 비밀번호 (숫자 4자리 · 바꿀 때만)"}</label><input id="m-pin" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="0000"></div>
-        ${!isNew && s.id !== S.board.me.id ? `<button class="btn btn--ghost" data-act="deactivate" style="color:var(--bad)">이 크루 빼기 (로그인 목록에서 사라져요)</button>` : ""}
       </div>
       <div class="sheet__f"><button class="btn btn--ghost" data-act="close">취소</button><button class="btn btn--main" data-act="save-member">저장하기</button></div></section>`;
+  }
+  if (s.type === "zone") {
+    const isNew = !s.old;
+    return `<div class="scrim" data-act="close"></div><section class="sheet" role="dialog" aria-modal="true" aria-label="${isNew ? "층 추가" : "층 수정"}">
+      <div class="sheet__h"><div><h2>${isNew ? "층 추가" : `${esc(s.old)} 수정`}</h2><p>크루 화면에 크게 보이는 이름이에요</p></div><button class="x" data-act="close" aria-label="닫기">${I.x}</button></div>
+      <div class="sheet__b">
+        <div class="field"><label for="z-code">층 이름 (영어·숫자, 예: 5A · B1)</label><input id="z-code" value="${esc(s.code)}" maxlength="6" autocomplete="off" autocapitalize="characters" ${isNew ? "autofocus" : ""}></div>
+        <div class="field"><label for="z-label">설명 (예: 5층 A · 2층 아지뜰)</label><input id="z-label" value="${esc(s.label)}" maxlength="30" autocomplete="off"></div>
+        ${isNew ? "" : '<p class="hint">층 이름을 바꾸면 배정과 완료 기록도 새 이름으로 같이 바뀌어요.</p>'}
+      </div>
+      <div class="sheet__f"><button class="btn btn--ghost" data-act="close">취소</button><button class="btn btn--main" data-act="save-zone">저장하기</button></div></section>`;
+  }
+  if (s.type === "confirm") {
+    const isZone = s.kind === "zone", m = isZone ? null : S.board.members.find(x => x.id === s.id);
+    const title = isZone ? `${esc(s.id)} 층을 삭제할까요?` : `${esc(m?.name)}님을 삭제할까요?`;
+    const desc = isZone ? "배정에서도 빠지고, 이 층의 완료 기록도 지워져요." : "로그인 목록과 배정에서 사라져요. 되돌릴 수 없어요.";
+    return `<div class="scrim" data-act="close"></div><section class="sheet sheet--sm" role="alertdialog" aria-modal="true" aria-label="삭제 확인">
+      <div class="sheet__b confirm">${isZone ? `<span class="zcode">${esc(s.id)}</span>` : avatar(m, "av--xl")}<h2>${title}</h2><p>${desc}</p></div>
+      <div class="sheet__f"><button class="btn btn--ghost" data-act="close" autofocus>취소</button><button class="btn btn--danger-fill" data-act="do-del">삭제하기</button></div></section>`;
   }
   return "";
 }
@@ -418,6 +479,8 @@ function syncSheetFields() {
   const n = document.getElementById("note"); if (n) S.sheet.note = n.value;
   const nm = document.getElementById("m-name"); if (nm) S.sheet.name = nm.value;
   const p = document.getElementById("m-pin"); if (p) S.sheet.pin = p.value;
+  const zc = document.getElementById("z-code"); if (zc) S.sheet.code = zc.value;
+  const zl = document.getElementById("z-label"); if (zl) S.sheet.label = zl.value;
 }
 
 // ── 동작 ──
@@ -468,22 +531,37 @@ async function act(a, el) {
         render(); break;
       }
       case "role": syncSheetFields(); S.sheet.role = el.dataset.r; render(); break;
-      case "save-member": case "deactivate": {
-        syncSheetFields(); const s = S.sheet, off = a === "deactivate";
-        if (off && !confirm(`${s.name}님을 뺄까요? 로그인 목록과 배정에서 사라져요.`)) return;
-        if (!off && s.pin && !/^\d{4}$/.test(s.pin)) { toast("비밀번호는 숫자 4자리예요"); return; }
+      case "save-member": {
+        syncSheetFields(); const s = S.sheet;
+        if (!s.name.trim()) { toast("이름을 적어 주세요"); return; }
+        if (s.pin && !/^\d{4}$/.test(s.pin)) { toast("비밀번호는 숫자 4자리예요"); return; }
+        if (!s.id && !s.pin) { toast("비밀번호 4자리를 정해 주세요"); return; }
         el.disabled = true;
-        await S.api.memberSave(S.sess.token, { id: s.id || null, name: s.name, role: s.role, pin: off ? null : (s.pin || null), sort: s.sort, active: !off });
-        S.sheet = null; await refresh(); toast(off ? "뺐어요" : "저장했어요"); break;
+        await S.api.memberSave(S.sess.token, { id: s.id || null, name: s.name, role: s.role, pin: s.pin || null, sort: s.sort, active: true });
+        S.sheet = null; await refresh(); toast(s.id ? "수정했어요" : "추가했어요"); break;
+      }
+      case "admintab": S.adminTab = el.dataset.t; render(); break;
+      case "edit-zone": {
+        const z = S.board.zones.find(x => x.code === el.dataset.id);
+        S.sheet = { type: "zone", old: z?.code || "", code: z?.code || "", label: z?.label || "" }; render(); break;
+      }
+      case "save-zone": {
+        syncSheetFields(); const s = S.sheet; el.disabled = true;
+        await S.api.zoneSave(S.sess.token, s.old || null, s.code.trim().toUpperCase(), s.label.trim());
+        S.sheet = null; await refresh(); toast(s.old ? "수정했어요" : "추가했어요"); break;
+      }
+      case "ask-del": S.sheet = { type: "confirm", kind: el.dataset.k, id: el.dataset.id }; render(); break;
+      case "do-del": {
+        const s = S.sheet; el.disabled = true;
+        if (s.kind === "zone") await S.api.zoneDelete(S.sess.token, s.id); else await S.api.memberDelete(S.sess.token, s.id);
+        S.sheet = null; await refresh(); toast("삭제했어요"); break;
       }
       case "move": {
-        const ms = S.board.members, i = ms.findIndex(m => m.id === el.dataset.id), j = i + +el.dataset.n;
-        if (j < 0 || j >= ms.length) return;
-        const order = ms.map(m => m.id); [order[i], order[j]] = [order[j], order[i]];
-        for (const [k, id] of order.entries()) {
-          const m = ms.find(x => x.id === id);
-          if (m.sort !== k) await S.api.memberSave(S.sess.token, { id, name: m.name, role: m.role, pin: null, sort: k, active: true });
-        }
+        const isZone = el.dataset.k === "zone", list = (isZone ? S.board.zones : S.board.members).map(x => isZone ? x.code : x.id);
+        const i = list.indexOf(el.dataset.id), k = i + +el.dataset.n;
+        if (i < 0 || k < 0 || k >= list.length) return;
+        [list[i], list[k]] = [list[k], list[i]]; el.disabled = true;
+        await (isZone ? S.api.zoneOrder(S.sess.token, list) : S.api.memberOrder(S.sess.token, list));
         await refresh(); break;
       }
       case "close": S.sheet = null; render(); break;

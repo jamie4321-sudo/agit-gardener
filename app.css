@@ -133,13 +133,16 @@ svg.i{width:1.25em;height:1.25em;flex:none;stroke:currentColor;fill:none;stroke-
 .tile{display:flex;flex-direction:column;gap:1rem;background:var(--panel);border:2px solid var(--line-soft);border-radius:var(--r-lg);padding:1.4rem 1.4rem 1.25rem;animation:rise .42s var(--ease-out) backwards;animation-delay:calc(var(--i,0) * 50ms);transition:background .25s ease,border-color .25s ease}
 .tile__z{display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem}
 .tile__z b{font-size:clamp(3.2rem,9vw,4.25rem);font-weight:900;letter-spacing:-2px;line-height:.95}
-.tile__z span{display:block;margin-top:.4rem;font-size:1.15rem;font-weight:700;color:var(--ink-2)}
+.tile__z div>span{display:block;margin-top:.4rem;font-size:1.15rem;font-weight:700;color:var(--ink-2)}
 .check{width:3rem;height:3rem;border-radius:50%;flex:none;display:grid;place-items:center;border:2.5px dashed var(--line);color:transparent}
 .check svg{width:1.6rem;height:1.6rem;stroke-width:3}
 .tile.done{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent-text) 40%,transparent)}
 .tile.done .check{border:0;background:var(--accent);color:var(--accent-ink);animation:pop .35s var(--ease-out)}
 @keyframes pop{0%{transform:scale(.5)}70%{transform:scale(1.12)}}
 .tile .btn{min-height:4rem;font-size:1.2rem}
+.tile .undo{display:flex;flex-direction:column;align-items:center;line-height:1.25}
+.tile .undo b{font-size:1.2rem;font-weight:800}
+.tile .undo small{font-size:.82rem;font-weight:700;color:var(--ink-3)}
 .tile .who-done{font-size:.95rem;color:var(--ink-2);font-weight:700}
 .memo{background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--r-lg);padding:1.2rem 1.35rem;display:flex;gap:.9rem;align-items:flex-start}
 .memo h3{margin:0 0 .3rem;font-size:.95rem;color:var(--ink-3);font-weight:700}
@@ -203,6 +206,22 @@ svg.i{width:1.25em;height:1.25em;flex:none;stroke:currentColor;fill:none;stroke-
 .row__body .from{font-size:.85rem;color:var(--ink-3);font-weight:700}
 .row__body .note{margin:0;font-size:.95rem;color:var(--ink-2);white-space:pre-wrap}
 
+
+/* ── admin ── */
+.btn--danger{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 35%,transparent)}
+.btn--danger-fill{background:var(--bad);border-color:var(--bad);color:#fff;font-weight:800}
+.row--admin{grid-template-columns:auto minmax(0,1fr) auto}
+.row__acts{display:flex;gap:.4rem;align-items:center}
+.row__acts .btn--ghost{width:2.75rem;padding:0}
+.zcode{min-width:3.5rem;height:3.5rem;padding:0 .6rem;border-radius:var(--r);background:var(--panel-2);display:grid;place-items:center;font-size:1.35rem;font-weight:900;letter-spacing:-.6px}
+.add-btn{align-self:flex-start}
+.seg .num{font-size:.85em;color:var(--ink-3);margin-left:.2rem}
+.sheet--sm{width:min(420px,calc(100% - 32px))}
+.confirm{align-items:center;text-align:center;padding-top:1.8rem}
+.confirm h2{margin:0;font-size:1.35rem;font-weight:800}
+.confirm p{margin:0;color:var(--ink-2)}
+.confirm .zcode{min-width:4.5rem;height:4.5rem;font-size:1.8rem}
+
 /* ── sheet ── */
 .scrim{position:fixed;inset:0;background:var(--scrim);z-index:40;animation:fade .2s ease}
 @keyframes fade{from{opacity:0}}
@@ -260,6 +279,27 @@ svg.i{width:1.25em;height:1.25em;flex:none;stroke:currentColor;fill:none;stroke-
   .tabbar button[aria-current="page"] svg{color:var(--accent-text)}
   .row{grid-template-columns:auto minmax(0,1fr);}
   .row>.btn{grid-column:1/-1}
+  .row--admin{grid-template-columns:auto minmax(0,1fr);gap:.8rem 1rem}
+  .row__acts{grid-column:1/-1}
+  .row__acts .btn:not(.btn--ghost){flex:1;min-height:3rem}
+  .row__acts .btn--ghost{min-height:3rem;width:3rem}
+  .add-btn{align-self:stretch}
+  .main>.seg,.view-seg{align-self:stretch}
+  .main>.seg button{flex:1}
+  .head h1{font-size:1.75rem}
+  .head p{font-size:1rem}
+  .tiles{grid-template-columns:1fr}
+  .zones{grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem}
+  .zone{min-height:8rem;padding:.9rem}
+  .zone__t b{font-size:1.9rem}
+  .who{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .people{grid-template-columns:1fr}
+  .datebar .d{flex:1;justify-content:space-between}
+  .row{padding:1rem}
+  .sheet__h{padding:1.1rem 1.1rem .9rem}
+  .sheet__b{padding:1rem 1.1rem}
+  .sheet__f{padding-left:1.1rem;padding-right:1.1rem}
+  .sheet--sm{width:100%}
   .sheet{left:0;right:0;top:auto;bottom:0;transform:none;width:100%;max-height:92vh;border-radius:var(--r-lg) var(--r-lg) 0 0;animation:upIn .32s var(--ease-out)}
   .sheet__f{padding-bottom:calc(1.3rem + env(safe-area-inset-bottom))}
   @keyframes upIn{from{transform:translateY(40px);opacity:0}}
