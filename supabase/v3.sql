@@ -1,7 +1,7 @@
--- 아지트 가드너 · v3: 관리자(팀리더) 역할 + 크루 비밀번호 설정 + 현장 이슈(사진 이력)
+-- 아지트 가드너 · v3: 관리자 역할 + 크루 비밀번호 설정 + 현장 이슈(사진 이력)
 -- schema.sql · admin.sql 다음에 SQL Editor 에서 Run. 여러 번 실행해도 안전해요.
 --
--- 역할: admin(관리자 · 팀리더) > manager(매니저) > crew(가드너)
+-- 역할: admin(관리자) > manager(매니저) > crew(가드너)
 --   관리자  : 관리자 설정(크루 이름·역할·비밀번호, 층 목록) + 매니저가 하는 모든 일
 --   매니저  : 업무 배정 · 현장 이슈 올리기/고치기/지우기
 --   가드너  : 내 업무 · 전체 보기 · 현장 이슈 보기 + '조치 완료'(사진 선택)
@@ -14,11 +14,11 @@ do $$ declare c text; begin
 end $$;
 alter table ag_members add constraint ag_members_role_check check (role in ('admin','manager','crew'));
 
--- 처음 한 번만: 관리자(팀리더) 계정. 이름·비밀번호는 로그인 후 '관리자 설정'에서 바꿔요.
+-- 처음 한 번만: 관리자 계정. 이름·비밀번호는 로그인 후 '관리자 설정'에서 바꿔요.
 do $$ begin
   if not exists (select 1 from ag_members where role = 'admin') then
     insert into ag_members(name, role, pin_hash, sort)
-    values ('팀리더', 'admin', extensions.crypt('9999', extensions.gen_salt('bf')), -1);
+    values ('관리자', 'admin', extensions.crypt('9999', extensions.gen_salt('bf')), -1);
   end if;
 end $$;
 

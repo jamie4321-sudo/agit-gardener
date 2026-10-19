@@ -96,7 +96,7 @@ const demo = {
     if (!d) {
       const t = today();
       d = { members: [
-        { id: "ma", name: "팀리더", role: "admin", pin: "9999", sort: -1, active: true },
+        { id: "ma", name: "관리자", role: "admin", pin: "9999", sort: -1, active: true },
         { id: "m0", name: "매니저", role: "manager", pin: "0427", sort: 0, active: true },
         { id: "m1", name: "가드너 1", role: "crew", pin: "1111", sort: 1, active: true },
         { id: "m2", name: "가드너 2", role: "crew", pin: "2222", sort: 2, active: true },
@@ -112,7 +112,7 @@ const demo = {
       save(DEMO_KEY, d);
     }
     if (!d.zones) d.zones = ZONES.map(z => ({ ...z }));
-    if (!d.members.some(m => m.role === "admin")) d.members.unshift({ id: "ma", name: "팀리더", role: "admin", pin: "9999", sort: -1, active: true });
+    if (!d.members.some(m => m.role === "admin")) d.members.unshift({ id: "ma", name: "관리자", role: "admin", pin: "9999", sort: -1, active: true });
     if (!d.issues) d.issues = [];
     if (!d.photos) d.photos = [];
     return d;
@@ -314,7 +314,7 @@ function renderFatal(msg) {
 // ── 로그인 ──
 function renderLogin() {
   const brand = `<div class="login__brand"><span class="mark">${I.leaf}</span><b>아지트 가드너</b><span>KAKAO AGIT · LINKAGELAB</span></div>`;
-  const demoNote = S.mode === "demo" ? `<p class="demo-note">지금은 <b>체험 모드</b>예요. 기록이 이 기기에만 저장돼요.<br>비밀번호: 팀리더 9999 · 매니저 0427 · 가드너 1 → 1111, 가드너 2 → 2222 …</p>` : "";
+  const demoNote = S.mode === "demo" ? `<p class="demo-note">지금은 <b>체험 모드</b>예요. 기록이 이 기기에만 저장돼요.<br>비밀번호: 관리자 9999 · 매니저 0427 · 가드너 1 → 1111, 가드너 2 → 2222 …</p>` : "";
   if (!S.pick) {
     $root.innerHTML = `<main class="login">${brand}<h1>누구세요?<br><small style="font-size:1.05rem;color:var(--ink-2);font-weight:700">내 이름을 눌러요</small></h1>
       <div class="who">${S.roster.map((m, i) => `<button data-act="pick" data-id="${esc(m.id)}" style="--i:${i}">${avatar(m, "av--xl")}<b>${esc(m.name)}</b><small>${roleName(m.role)}</small></button>`).join("")}</div>${demoNote}</main>`;
@@ -592,7 +592,7 @@ function renderSheet() {
       <div class="sheet__b">
         <div class="field"><label for="m-name">이름</label><input id="m-name" value="${esc(s.name)}" maxlength="20" autocomplete="off" ${isNew ? "autofocus" : ""}></div>
         <div class="field"><span>역할</span><div class="seg" role="group">${["crew", "manager", "admin"].map(r => `<button data-act="role" data-r="${r}" aria-pressed="${s.role === r}">${roleName(r)}</button>`).join("")}</div>
-          <small>${{ crew: "가드너는 내 업무·전체 보기·현장 이슈를 봐요.", manager: "매니저는 업무 배정과 현장 이슈 올리기를 해요.", admin: "관리자(팀리더)는 매니저 일에 더해 크루·비밀번호·층 목록을 관리해요." }[s.role]}</small></div>
+          <small>${{ crew: "가드너는 내 업무·전체 보기·현장 이슈를 봐요.", manager: "매니저는 업무 배정과 현장 이슈 올리기를 해요.", admin: "관리자는 매니저 일에 더해 크루·비밀번호·층 목록을 관리해요." }[s.role]}</small></div>
         ${isNew ? `<div class="field"><label for="m-pin">비밀번호 (숫자 4자리)</label><input id="m-pin" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="0000"></div>` : ""}
       </div>
       <div class="sheet__f"><button class="btn btn--ghost" data-act="close">취소</button><button class="btn btn--main" data-act="save-member">저장하기</button></div></section>`;
