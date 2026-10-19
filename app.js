@@ -501,9 +501,9 @@ function viewIssues() {
       ${thumbs(before, x.done_at ? "조치 전" : "현장 사진")}
       ${x.done_at ? `<div class="issue__done"><p class="issue__by">${I.ok}<span><b>${esc(x.done_name || "알 수 없음")}</b> · ${fmtWhen(x.done_at)} 조치</span></p>${x.done_note ? `<p class="issue__memo">${esc(x.done_note)}</p>` : ""}${thumbs(after, "조치 후")}</div>` : ""}
       <div class="issue__acts">
-        ${x.done_at ? (canUndo ? `<button class="btn btn--sm" data-act="issue-undo" data-id="${esc(x.id)}">진행 중으로 되돌리기</button>` : "")
+        ${x.done_at ? (canUndo ? `<button class="btn btn--sm" data-act="issue-done" data-id="${esc(x.id)}">조치 내용 수정</button><button class="btn btn--sm" data-act="issue-undo" data-id="${esc(x.id)}">진행 중으로</button>` : "")
                     : `<button class="btn btn--main" data-act="issue-done" data-id="${esc(x.id)}">${I.check} 조치 완료</button>`}
-        ${isMgr() ? `${x.done_at ? "" : `<button class="btn btn--sm" data-act="edit-issue" data-id="${esc(x.id)}">수정</button>`}<button class="btn btn--sm btn--danger" data-act="ask-del" data-k="issue" data-id="${esc(x.id)}">삭제</button>` : ""}
+        ${isMgr() ? `<button class="btn btn--sm" data-act="edit-issue" data-id="${esc(x.id)}">${x.done_at ? "이슈 수정" : "수정"}</button><button class="btn btn--sm btn--danger" data-act="ask-del" data-k="issue" data-id="${esc(x.id)}">삭제</button>` : ""}
       </div></article>`;
   }).join("")}</div>${tab === "done" && d.done > d.items.length ? `<p class="hint">최근 ${d.items.length}건만 보여요.</p>` : ""}`;
 }
@@ -631,14 +631,14 @@ function renderSheet() {
       <div class="sheet__f"><button class="btn btn--ghost" data-act="close">취소</button><button class="btn btn--main" data-act="save-issue" ${s.busyPhoto ? "disabled" : ""}>${isNew ? "올리기" : "저장하기"}</button></div></section>`;
   }
   if (s.type === "done") {
-    const x = S.issues?.items.find(i => i.id === s.id);
-    return `<div class="scrim" data-act="close"></div><section class="sheet" role="dialog" aria-modal="true" aria-label="조치 완료">
-      <div class="sheet__h">${x?.zone ? `<span class="zcode">${esc(x.zone)}</span>` : ""}<div><h2>조치 완료</h2><p>${esc(x?.memo ? x.memo.slice(0, 40) + (x.memo.length > 40 ? "…" : "") : "현장 이슈")}</p></div><button class="x" data-act="close" aria-label="닫기">${I.x}</button></div>
+    const x = S.issues?.items.find(i => i.id === s.id), edit = !!x?.done_at;
+    return `<div class="scrim" data-act="close"></div><section class="sheet" role="dialog" aria-modal="true" aria-label="${edit ? "조치 내용 수정" : "조치 완료"}">
+      <div class="sheet__h">${x?.zone ? `<span class="zcode">${esc(x.zone)}</span>` : ""}<div><h2>${edit ? "조치 내용 수정" : "조치 완료"}</h2><p>${esc(x?.memo ? x.memo.slice(0, 40) + (x.memo.length > 40 ? "…" : "") : "현장 이슈")}</p></div><button class="x" data-act="close" aria-label="닫기">${I.x}</button></div>
       <div class="sheet__b">
         ${photoPicker(s, "조치 후 사진")}
         <div class="field"><label for="d-note">어떻게 조치했나요? <small>(선택)</small></label><textarea id="d-note" maxlength="1000" placeholder="예) 잎 정리하고 물 양 줄였어요.">${esc(s.note)}</textarea></div>
       </div>
-      <div class="sheet__f"><button class="btn btn--ghost" data-act="close">취소</button><button class="btn btn--main" data-act="save-done" ${s.busyPhoto ? "disabled" : ""}>${I.check} 조치 완료</button></div></section>`;
+      <div class="sheet__f"><button class="btn btn--ghost" data-act="close">취소</button><button class="btn btn--main" data-act="save-done" ${s.busyPhoto ? "disabled" : ""}>${edit ? "저장하기" : `${I.check} 조치 완료`}</button></div></section>`;
   }
   if (s.type === "photo") {
     return `<div class="scrim scrim--dark" data-act="close"></div><section class="viewer" role="dialog" aria-modal="true" aria-label="사진 크게 보기">
@@ -772,14 +772,19 @@ async function act(a, el) {
         const id = await S.api.issueSave(S.sess.token, s.id || null, s.zone, s.memo.trim());
         for (const pid of s.del) await S.api.issuePhotoDelete(S.sess.token, pid);
         for (const ph of s.add) await S.api.issuePhotoAdd(S.sess.token, id, "before", ph);
-        S.sheet = null; S.issueTab = "open"; await refresh(); toast(s.id ? "수정했어요" : "이슈를 올렸어요"); break;
+        S.sheet = null; if (!s.id) S.issueTab = "open"; await refresh(); toast(s.id ? "수정했어요" : "이슈를 올렸어요"); break;
       }
-      case "issue-done": S.sheet = { type: "done", id: el.dataset.id, note: "", photos: [], add: [], del: [] }; render(); break;
+      case "issue-done": {
+        const x = S.issues.items.find(i => i.id === el.dataset.id);
+        S.sheet = { type: "done", id: x.id, note: x.done_note || "", photos: x.photos.filter(p => p.kind === "after"), add: [], del: [] }; render(); break;
+      }
       case "save-done": {
-        syncSheetFields(); const s = S.sheet; el.disabled = true; el.textContent = "저장하는 중…";
+        syncSheetFields(); const s = S.sheet, edit = !!S.issues.items.find(i => i.id === s.id)?.done_at;
+        el.disabled = true; el.textContent = "저장하는 중…";
+        for (const pid of s.del) await S.api.issuePhotoDelete(S.sess.token, pid);
         for (const ph of s.add) await S.api.issuePhotoAdd(S.sess.token, s.id, "after", ph);
         await S.api.issueDone(S.sess.token, s.id, true, s.note.trim());
-        S.sheet = null; await refresh(); navigator.vibrate?.(40); toast("조치 완료했어요. 수고했어요"); break;
+        S.sheet = null; await refresh(); navigator.vibrate?.(40); toast(edit ? "조치 내용을 고쳤어요" : "조치 완료했어요. 수고했어요"); break;
       }
       case "issue-undo": {
         if (!confirm("진행 중으로 되돌릴까요? 조치 후 사진도 같이 지워져요.")) return;
