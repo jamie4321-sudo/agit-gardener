@@ -45,6 +45,7 @@ const I = {
   down: '<svg class="i" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>',
   issue: '<svg class="i" viewBox="0 0 24 24"><path d="M5 21V4h11l-1.5 4L16 12H5"/></svg>',
   cam: '<svg class="i" viewBox="0 0 24 24"><path d="M4 8h3l1.5-2.5h7L17 8h3v11H4z"/><circle cx="12" cy="13.2" r="3.4"/></svg>',
+  pin: '<svg class="i" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></svg>',
   key: '<svg class="i" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 12 8.5-8.5M16 7l2.5 2.5M14 9l2 2"/></svg>',
 };
 
@@ -78,7 +79,8 @@ const remote = {
   memberPin(t, id, pin) { return this.rpc("ag_member_pin", { p_token: t, p_id: id, p_pin: pin }); },
   issueList(t, status) { return this.rpc("ag_issue_list", { p_token: t, p_status: status, p_limit: 60 }); },
   issuePhoto(t, id) { return this.rpc("ag_issue_photo", { p_token: t, p_id: id }); },
-  issueSave(t, id, zone, memo) { return this.rpc("ag_issue_save", { p_token: t, p_id: id || null, p_zone: zone || null, p_memo: memo }); },
+  issueWeek(t, from) { return this.rpc("ag_issue_week", { p_token: t, p_from: from }); },
+  issueSave(t, id, zone, memo, place, day) { return this.rpc("ag_issue_save", { p_token: t, p_id: id || null, p_zone: zone || null, p_memo: memo, p_place: place || "", p_day: day || null }); },
   issuePhotoAdd(t, issue, kind, ph) { return this.rpc("ag_issue_photo_add", { p_token: t, p_issue: issue, p_kind: kind, p_thumb: ph.thumb, p_full: ph.full }); },
   issuePhotoDelete(t, id) { return this.rpc("ag_issue_photo_delete", { p_token: t, p_id: id }); },
   issueDone(t, id, flag, note) { return this.rpc("ag_issue_done", { p_token: t, p_id: id, p_done: flag, p_note: note || "" }); },
@@ -200,15 +202,28 @@ const demo = {
     const at = x => x.done_at || x.created_at;
     let items = d.issues.filter(x => (status === "done") === !!x.done_at).sort((a, b) => at(b).localeCompare(at(a)));
     if (status === "done") items = items.slice(0, 60);
-    return { open: d.issues.filter(x => !x.done_at).length, done: d.issues.filter(x => x.done_at).length,
+    const places = [...new Set([...d.issues].sort((a, b) => b.created_at.localeCompare(a.created_at)).map(x => x.place).filter(Boolean))].slice(0, 12);
+    return { open: d.issues.filter(x => !x.done_at).length, done: d.issues.filter(x => x.done_at).length, places,
       items: items.map(x => ({ ...x, created_name: nm(x.created_by), done_name: nm(x.done_by),
         photos: d.photos.filter(p => p.issue_id === x.id).map(p => ({ id: p.id, kind: p.kind, thumb: p.thumb, by: p.created_by })) })) };
   },
+  async issueWeek(t, from) {
+    this.me(t); const d = this.db(), to = addDays(from, 6), t0 = today(), nm = id => d.members.find(m => m.id === id)?.name || "";
+    const cur = from <= t0 && t0 <= to;
+    d.issues.forEach(x => { if (!x.day) x.day = ymd(new Date(x.created_at)); });
+    const items = d.issues.filter(x => (x.day >= from && x.day <= to) || (cur && x.day < from && !x.done_at))
+      .sort((a, b) => b.day.localeCompare(a.day) || b.created_at.localeCompare(a.created_at))
+      .map(x => ({ ...x, carry: x.day < from, created_name: nm(x.created_by), done_name: nm(x.done_by),
+        photos: d.photos.filter(p => p.issue_id === x.id).map(p => ({ id: p.id, kind: p.kind, thumb: p.thumb, by: p.created_by })) }));
+    const places = [...new Set([...d.issues].sort((a, b) => b.created_at.localeCompare(a.created_at)).map(x => x.place).filter(Boolean))].slice(0, 12);
+    return { from, to, open_all: d.issues.filter(x => !x.done_at).length, places, items };
+  },
   async issuePhoto(t, id) { this.me(t); return this.db().photos.find(p => p.id === id)?.full_img || null; },
-  async issueSave(t, id, zone, memo) {
-    const m = this.mgr(t), d = this.db(); zone = d.zones.some(z => z.code === zone) ? zone : null; memo = String(memo || "").trim().slice(0, 1000);
-    if (!id) { id = "i" + Date.now(); d.issues.push({ id, zone, memo, created_by: m.id, created_at: new Date().toISOString(), done_at: null, done_by: null, done_note: "" }); }
-    else { const x = d.issues.find(i => i.id === id); if (!x) throw new Error("이슈를 찾지 못했어요"); Object.assign(x, { zone, memo }); }
+  async issueSave(t, id, zone, memo, place, day) {
+    day = day && day <= today() ? day : today();
+    const m = this.mgr(t), d = this.db(); zone = d.zones.some(z => z.code === zone) ? zone : null; memo = String(memo || "").trim().slice(0, 1000); place = String(place || "").trim().slice(0, 40);
+    if (!id) { id = "i" + Date.now(); d.issues.push({ id, day, zone, place, memo, created_by: m.id, created_at: new Date().toISOString(), done_at: null, done_by: null, done_note: "" }); }
+    else { const x = d.issues.find(i => i.id === id); if (!x) throw new Error("이슈를 찾지 못했어요"); Object.assign(x, { day, zone, place, memo }); }
     this.put(d); return id;
   },
   async issuePhotoAdd(t, issue, kind, ph) {
@@ -366,7 +381,7 @@ function render() {
   const me = S.board.me, nav = navItems();
   const views = { me: viewMe, all: viewAll, issues: viewIssues, assign: viewAssign, admin: viewAdmin };
   if (!views[S.view] || (!isMgr() && S.view === "assign") || (!isAdmin() && S.view === "admin")) S.view = "me";
-  const badge = k => k === "issues" && S.issues?.open ? `<span class="badge num">${S.issues.open}</span>` : "";
+  const badge = k => k === "issues" && S.issues?.open_all ? `<span class="badge num">${S.issues.open_all}</span>` : "";
   const banner = S.mode === "demo" ? `<span class="mode-banner">체험 모드<span class="d-only"> · 이 기기에만 저장</span></span>` : "";
   $root.innerHTML = `<div class="app">
     <aside class="side" aria-label="메뉴">
@@ -482,20 +497,14 @@ const fmtWhen = iso => {
 };
 const thumbs = (ps, label) => ps.length ? `<div class="shots"><h4>${label} <span class="num">${ps.length}</span></h4><div class="shots__g">${ps.map(p =>
   `<button class="shot" data-act="photo" data-id="${esc(p.id)}" aria-label="${label} 사진 크게 보기"><img src="${p.thumb}" alt="" loading="lazy"></button>`).join("")}</div></div>` : "";
-function viewIssues() {
-  const tab = S.issueTab || "open", d = S.issues, me = S.board.me;
-  const seg = `<div class="seg" role="group" aria-label="이슈 상태"><button data-act="issuetab" data-t="open" aria-pressed="${tab === "open"}">진행 중 <span class="num">${d?.open ?? ""}</span></button><button data-act="issuetab" data-t="done" aria-pressed="${tab === "done"}">조치 완료 <span class="num">${d?.done ?? ""}</span></button></div>`;
-  const head = `<header class="head"><h1>현장 이슈</h1><p>${isMgr() ? "현장 사진으로 이슈를 남겨요. 조치하면 '조치 완료'를 눌러요." : "매니저가 남긴 현장 이슈예요. 조치했으면 '조치 완료'를 눌러요."}</p></header>`;
-  const add = isMgr() ? `<button class="btn btn--main add-btn" data-act="new-issue">${I.cam} 이슈 올리기</button>` : "";
-  if (d?.missing) return `${head}<div class="empty"><b>서버 업데이트가 필요해요</b><p>Supabase 에서 v3.sql 을 실행하면 열려요.</p></div>`;
-  if (!d || d.status !== tab) return `${head}${seg}${add}<div class="empty"><p>불러오는 중…</p></div>`;
-  if (!d.items.length) return `${head}${seg}${add}<div class="empty"><b>${tab === "open" ? "남은 이슈가 없어요" : "아직 조치 완료한 이슈가 없어요"}</b><p>${tab === "open" && isMgr() ? "현장에서 사진을 찍어 올려 보세요." : "새 이슈가 생기면 여기에 보여요."}</p></div>`;
-  return `${head}${seg}${add}<div class="issues">${d.items.map((x, i) => {
-    const before = x.photos.filter(p => p.kind === "before"), after = x.photos.filter(p => p.kind === "after");
-    const canUndo = isMgr() || x.done_by === me.id;
-    return `<article class="issue ${x.done_at ? "is-done" : ""}" style="--i:${i}">
-      <div class="issue__h">${x.zone ? `<span class="zcode">${esc(x.zone)}</span>` : `<span class="zcode zcode--none">층</span>`}
-        <div><b>${x.zone ? esc(zoneLabel(x.zone)) : "층 정하지 않음"}</b><small>${esc(x.created_name || "알 수 없음")} · ${fmtWhen(x.created_at)}</small></div>
+const issuePlace = x => x.zone && x.place ? `${zoneLabel(x.zone)} · ${x.place}` : x.place || (x.zone ? zoneLabel(x.zone) : "위치 정하지 않음");
+const monday = d => { const w = (parse(d).getDay() + 6) % 7; return addDays(d, -w); };
+function issueCard(x, i) {
+  const me = S.board.me, before = x.photos.filter(p => p.kind === "before"), after = x.photos.filter(p => p.kind === "after");
+  const canUndo = isMgr() || x.done_by === me.id;
+  return `<article class="issue ${x.done_at ? "is-done" : ""}" style="--i:${i}">
+      <div class="issue__h">${x.zone ? `<span class="zcode">${esc(x.zone)}</span>` : `<span class="zcode zcode--none">${I.pin}</span>`}
+        <div><b>${esc(issuePlace(x))}</b><small>${esc(x.created_name || "알 수 없음")} · ${x.carry ? fmtShort(x.day) + "부터" : fmtShort(x.day)}</small></div>
         ${x.done_at ? `<span class="state state--done">${I.check} 조치 완료</span>` : `<span class="state">진행 중</span>`}</div>
       ${x.memo ? `<p class="issue__memo">${esc(x.memo)}</p>` : ""}
       ${thumbs(before, x.done_at ? "조치 전" : "현장 사진")}
@@ -505,15 +514,42 @@ function viewIssues() {
                     : `<button class="btn btn--main" data-act="issue-done" data-id="${esc(x.id)}">${I.check} 조치 완료</button>`}
         ${isMgr() ? `<button class="btn btn--sm" data-act="edit-issue" data-id="${esc(x.id)}">${x.done_at ? "이슈 수정" : "수정"}</button><button class="btn btn--sm btn--danger" data-act="ask-del" data-k="issue" data-id="${esc(x.id)}">삭제</button>` : ""}
       </div></article>`;
-  }).join("")}</div>${tab === "done" && d.done > d.items.length ? `<p class="hint">최근 ${d.items.length}건만 보여요.</p>` : ""}`;
+}
+// 현장 이슈 · 주간 보기 (월~일). 이번 주에는 지난주부터 남은 진행 중 이슈도 같이 보여요.
+function viewIssues() {
+  const wk = S.issueWeek || monday(today()), cur = wk === monday(today()), tab = S.issueTab || "all", d = S.issues;
+  const head = `<header class="head"><h1>현장 이슈</h1><p>${isMgr() ? "현장 사진으로 이슈를 남기고, 주마다 모아 봐요." : "매니저가 남긴 현장 이슈예요. 조치했으면 '조치 완료'를 눌러요."}</p></header>`;
+  const bar = `<div class="datebar"><div class="d">
+      <button data-act="iweek" data-n="-7" aria-label="지난주">${I.left}</button>
+      <label>${fmtShort(wk)} – ${fmtShort(addDays(wk, 6))}${cur ? " · 이번 주" : ""}<input type="date" value="${wk}" max="${today()}" data-act="iweekset" aria-label="주 고르기"></label>
+      <button data-act="iweek" data-n="7" aria-label="다음 주" ${cur ? "disabled" : ""}>${I.right}</button></div>
+    ${cur ? "" : `<button class="tool" data-act="iweek-now">이번 주로</button>`}</div>`;
+  const add = isMgr() ? `<button class="btn btn--main add-btn" data-act="new-issue">${I.cam} 이슈 올리기</button>` : "";
+  if (d?.missing) return `${head}<div class="empty"><b>서버 업데이트가 필요해요</b><p>Supabase 에서 v4.sql 을 실행하면 열려요.</p></div>`;
+  if (!d || d.week !== wk) return `${head}${bar}${add}<div class="empty"><p>불러오는 중…</p></div>`;
+  const inWeek = d.items.filter(x => !x.carry), carry = d.items.filter(x => x.carry);
+  const nOpen = inWeek.filter(x => !x.done_at).length, nDone = inWeek.length - nOpen;
+  const sum = `<div class="wsum"><div><b class="num">${inWeek.length}</b><span>올라온 이슈</span></div><div><b class="num">${nOpen}</b><span>진행 중</span></div><div><b class="num">${nDone}</b><span>조치 완료</span></div></div>`;
+  const seg = `<div class="seg" role="group" aria-label="보기"><button data-act="issuetab" data-t="all" aria-pressed="${tab === "all"}">전체</button><button data-act="issuetab" data-t="open" aria-pressed="${tab === "open"}">진행 중</button><button data-act="issuetab" data-t="done" aria-pressed="${tab === "done"}">조치 완료</button></div>`;
+  const keep = x => tab === "all" || (tab === "open" ? !x.done_at : !!x.done_at);
+  const cards = inWeek.filter(keep), carried = carry.filter(keep);
+  let i = 0, body = "";
+  if (carried.length) body += `<section class="dayg"><h2 class="dayh">지난주부터 진행 중 <span class="num">${carried.length}</span></h2><div class="issues">${carried.map(x => issueCard(x, i++)).join("")}</div></section>`;
+  const days = [...new Set(cards.map(x => x.day))].sort().reverse();
+  body += days.map(day => {
+    const list = cards.filter(x => x.day === day);
+    return `<section class="dayg"><h2 class="dayh">${dayWord(day) === "오늘" || dayWord(day) === "어제" ? dayWord(day) + " · " : ""}${fmtDay(day)} <span class="num">${list.length}</span></h2><div class="issues">${list.map(x => issueCard(x, i++)).join("")}</div></section>`;
+  }).join("");
+  if (!body) body = `<div class="empty"><b>${tab === "open" ? "진행 중인 이슈가 없어요" : tab === "done" ? "조치 완료한 이슈가 없어요" : cur ? "이번 주 이슈가 아직 없어요" : "이 주에는 이슈가 없었어요"}</b><p>${isMgr() && cur ? "현장에서 사진을 찍어 올려 보세요." : "주를 바꿔서 볼 수 있어요."}</p></div>`;
+  return `${head}${bar}${sum}${add}${seg}${body}`;
 }
 async function loadIssues() {
   if (!S.sess) return;
-  const st = S.issueTab || "open";
-  try { S.issues = { ...(await S.api.issueList(S.sess.token, st)), status: st }; }
+  const wk = S.issueWeek || monday(today());
+  try { S.issues = { ...(await S.api.issueWeek(S.sess.token, wk)), week: wk }; }
   catch (e) {
     if (e.code === "28000" || /AUTH/.test(e.message)) throw e;
-    if (missingFn(e)) S.issues = { open: 0, done: 0, items: [], status: st, missing: true };
+    if (missingFn(e)) S.issues = { open_all: 0, items: [], week: wk, missing: true };
   }
 }
 // 사진 줄이기: 큰 사진(긴 변 1600px)과 목록용 작은 사진(360px)
@@ -624,9 +660,13 @@ function renderSheet() {
     return `<div class="scrim" data-act="close"></div><section class="sheet" role="dialog" aria-modal="true" aria-label="${isNew ? "이슈 올리기" : "이슈 수정"}">
       <div class="sheet__h"><div><h2>${isNew ? "현장 이슈 올리기" : "이슈 수정"}</h2><p>사진과 내용 중 하나는 꼭 있어야 해요</p></div><button class="x" data-act="close" aria-label="닫기">${I.x}</button></div>
       <div class="sheet__b">
+        <div class="field"><label for="i-day">날짜</label><input id="i-day" type="date" value="${esc(s.day)}" max="${today()}"></div>
         ${photoPicker(s, "현장 사진")}
         <div class="field"><label for="i-memo">어떤 이슈인가요?</label><textarea id="i-memo" maxlength="1000" placeholder="예) 5A 창가 몬스테라 잎이 노랗게 변했어요. 물 주기 확인 필요.">${esc(s.memo)}</textarea></div>
-        <div class="field"><span>어느 층인가요? <small>(선택)</small></span><div class="pick">${S.board.zones.map(z => `<button data-act="issue-zone" data-z="${esc(z.code)}" aria-pressed="${s.zone === z.code}"><b>${esc(z.code)}</b><small>${esc(z.label)}</small></button>`).join("")}</div></div>
+        <div class="field"><label for="i-place">어디인가요? <small>(선택 · 직접 적어도 돼요)</small></label>
+          <input id="i-place" value="${esc(s.place)}" maxlength="40" autocomplete="off" placeholder="예) 3층 회의실 앞, 1층 로비 입구">
+          ${(S.issues?.places || []).length ? `<div class="places"><small>최근 위치</small>${S.issues.places.map(pl => `<button class="place" data-act="issue-place" data-p="${esc(pl)}" aria-pressed="${s.place === pl}">${I.pin}${esc(pl)}</button>`).join("")}</div>` : ""}</div>
+        <div class="field"><span>층 <small>(선택)</small></span><div class="pick">${S.board.zones.map(z => `<button data-act="issue-zone" data-z="${esc(z.code)}" aria-pressed="${s.zone === z.code}"><b>${esc(z.code)}</b><small>${esc(z.label)}</small></button>`).join("")}</div></div>
       </div>
       <div class="sheet__f"><button class="btn btn--ghost" data-act="close">취소</button><button class="btn btn--main" data-act="save-issue" ${s.busyPhoto ? "disabled" : ""}>${isNew ? "올리기" : "저장하기"}</button></div></section>`;
   }
@@ -663,6 +703,8 @@ function syncSheetFields() {
   const zc = document.getElementById("z-code"); if (zc) S.sheet.code = zc.value;
   const zl = document.getElementById("z-label"); if (zl) S.sheet.label = zl.value;
   const im = document.getElementById("i-memo"); if (im) S.sheet.memo = im.value;
+  const ip = document.getElementById("i-place"); if (ip) S.sheet.place = ip.value;
+  const idy = document.getElementById("i-day"); if (idy) S.sheet.day = idy.value || today();
   const dn = document.getElementById("d-note"); if (dn) S.sheet.note = dn.value;
   document.querySelectorAll("[data-zn]").forEach(t => { if (S.sheet.zoneNotes) S.sheet.zoneNotes[t.dataset.zn] = t.value; });
 }
@@ -753,12 +795,15 @@ async function act(a, el) {
         el.disabled = true; await S.api.memberPin(S.sess.token, S.sheet.id, a1);
         S.sheet = null; render(); toast("비밀번호를 바꿨어요"); break;
       }
-      case "issuetab": S.issueTab = el.dataset.t; S.issues = S.issues ? { ...S.issues, status: null } : null; render(); await loadIssues(); if (!S.sheet) render(); break;
-      case "new-issue": S.sheet = { type: "issue", id: "", zone: "", memo: "", photos: [], add: [], del: [] }; render(); break;
+      case "issuetab": S.issueTab = el.dataset.t; render(); break;
+      case "iweek": S.issueWeek = addDays(S.issueWeek || monday(today()), +el.dataset.n); if (S.issueWeek > monday(today())) S.issueWeek = monday(today()); render(); await loadIssues(); if (!S.sheet) render(); break;
+      case "iweek-now": S.issueWeek = monday(today()); render(); await loadIssues(); if (!S.sheet) render(); break;
+      case "new-issue": S.sheet = { type: "issue", id: "", day: today(), zone: "", place: "", memo: "", photos: [], add: [], del: [] }; render(); break;
       case "edit-issue": {
         const x = S.issues.items.find(i => i.id === el.dataset.id);
-        S.sheet = { type: "issue", id: x.id, zone: x.zone || "", memo: x.memo, photos: x.photos.filter(p => p.kind === "before"), add: [], del: [] }; render(); break;
+        S.sheet = { type: "issue", id: x.id, day: x.day, zone: x.zone || "", place: x.place || "", memo: x.memo, photos: x.photos.filter(p => p.kind === "before"), add: [], del: [] }; render(); break;
       }
+      case "issue-place": syncSheetFields(); S.sheet.place = S.sheet.place === el.dataset.p ? "" : el.dataset.p; render(); break;
       case "issue-zone": syncSheetFields(); S.sheet.zone = S.sheet.zone === el.dataset.z ? "" : el.dataset.z; render(); break;
       case "photo-rm": {
         syncSheetFields();
@@ -769,10 +814,10 @@ async function act(a, el) {
         syncSheetFields(); const s = S.sheet, kept = s.photos.filter(p => !s.del.includes(p.id)).length;
         if (!s.memo.trim() && !kept && !s.add.length) { toast("사진이나 내용을 넣어 주세요"); return; }
         el.disabled = true; el.textContent = "올리는 중…";
-        const id = await S.api.issueSave(S.sess.token, s.id || null, s.zone, s.memo.trim());
+        const id = await S.api.issueSave(S.sess.token, s.id || null, s.zone, s.memo.trim(), s.place.trim(), s.day);
         for (const pid of s.del) await S.api.issuePhotoDelete(S.sess.token, pid);
         for (const ph of s.add) await S.api.issuePhotoAdd(S.sess.token, id, "before", ph);
-        S.sheet = null; if (!s.id) S.issueTab = "open"; await refresh(); toast(s.id ? "수정했어요" : "이슈를 올렸어요"); break;
+        S.sheet = null; S.issueWeek = monday(s.day); await refresh(); toast(s.id ? "수정했어요" : "이슈를 올렸어요"); break;
       }
       case "issue-done": {
         const x = S.issues.items.find(i => i.id === el.dataset.id);
@@ -819,6 +864,12 @@ document.addEventListener("click", e => {
   if (!el || el.tagName === "INPUT" || el.disabled) return;
   act(el.dataset.act, el);
 });
+// 위치를 직접 적으면 '최근 위치' 버튼 선택도 따라가요
+document.addEventListener("input", e => {
+  if (e.target.id !== "i-place" || !S.sheet) return;
+  S.sheet.place = e.target.value;
+  document.querySelectorAll('[data-act="issue-place"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.p === e.target.value.trim()));
+});
 document.addEventListener("change", async e => {
   if (e.target.dataset?.act === "photo-in" && S.sheet) {
     const s = S.sheet, files = [...e.target.files], room = 4 - (s.photos.filter(p => !s.del.includes(p.id)).length + s.add.length);
@@ -829,6 +880,7 @@ document.addEventListener("change", async e => {
     finally { s.busyPhoto = false; if (S.sheet === s) render(); }
     return;
   }
+  if (e.target.dataset?.act === "iweekset" && e.target.value) { S.issueWeek = monday(e.target.value); loadIssues().then(() => !S.sheet && render()).catch(err => toast(errMsg(err))); return; }
   if (e.target.dataset?.act === "dayset" && e.target.value) { S.day = e.target.value; refresh().catch(err => toast(errMsg(err))); }
 });
 document.addEventListener("keydown", e => {
