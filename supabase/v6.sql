@@ -90,3 +90,6 @@ end $$;
 
 grant execute on function ag_issue_comment_add(text, uuid, text), ag_issue_comment_delete(text, uuid),
   ag_issue_heart(text, uuid, boolean), ag_issue_week(text, date) to anon, authenticated;
+
+-- API 가 새 함수를 바로 알아보도록
+notify pgrst, 'reload schema';
