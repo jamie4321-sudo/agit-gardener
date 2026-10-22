@@ -476,3 +476,11 @@ button.shot:active{transform:scale(.96)}
   @keyframes upIn{from{transform:translateY(40px);opacity:0}}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* 교육 자료: #root 밖 iframe 한 장 — 교육 탭일 때만 보여요 */
+#edu-frame{display:none;position:fixed;top:0;right:0;bottom:0;left:var(--side-w);width:calc(100% - var(--side-w));height:100%;border:0;background:var(--bg);z-index:25}
+body.is-edu #edu-frame{display:block}
+body.is-edu .main{visibility:hidden}
+@media (max-width:860px){
+  #edu-frame{left:0;width:100%;bottom:var(--tabbar-h,0px);height:calc(100% - var(--tabbar-h,0px))}
+}

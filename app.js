@@ -50,6 +50,7 @@ const I = {
   heart: '<svg class="i" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z"/></svg>',
   send: '<svg class="i" viewBox="0 0 24 24"><path d="M4 12 20 4l-4 16-4-7z"/><path d="m12 13 8-9"/></svg>',
   cmp: '<svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M12 3v18"/></svg>',
+  book: '<svg class="i" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/><path d="M9 8h7"/></svg>',
   key: '<svg class="i" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 12 8.5-8.5M16 7l2.5 2.5M14 9l2 2"/></svg>',
 };
 
@@ -369,6 +370,7 @@ function renderFatal(msg) {
 
 // ── 로그인 ──
 function renderLogin() {
+  document.body.classList.remove("is-edu"); document.getElementById("edu-frame")?.remove();
   const brand = `<div class="login__brand"><span class="mark">${I.leaf}</span><b>아지트 가드너</b><span>KAKAO AGIT · LINKAGELAB</span></div>`;
   const demoNote = S.mode === "demo" ? `<p class="demo-note">지금은 <b>체험 모드</b>예요. 기록이 이 기기에만 저장돼요.<br>비밀번호: 관리자 9999 · 매니저 0427 · 가드너 1 → 1111, 가드너 2 → 2222 …</p>` : "";
   if (!S.pick) {
@@ -415,7 +417,7 @@ const MGR_VIEWS = ["assign", "admin"];
 const locked = k => !ASSIGN_ON && ["me", "all", "assign"].includes(k);
 const navAttr = k => locked(k) ? 'aria-disabled="true" class="is-off" title="준비 중이에요"' : S.view === k ? 'aria-current="page"' : "";
 function navItems() {
-  const items = [["me", "내 업무", I.me, "내 업무"], ["all", "전체 보기", I.all, "전체"], ["issues", "현장 이슈", I.issue, "현장 이슈"]];
+  const items = [["me", "내 업무", I.me, "내 업무"], ["all", "전체 보기", I.all, "전체"], ["issues", "현장 이슈", I.issue, "현장 이슈"], ["edu", "교육 자료", I.book, "교육"]];
   if (isMgr()) items.push(["assign", "업무 배정", I.assign, "배정"]);
   if (isAdmin()) items.push(["admin", "관리자 설정", I.team, "설정"]);
   return items;
@@ -423,7 +425,7 @@ function navItems() {
 function render() {
   if (!S.board) return;
   const me = S.board.me, nav = navItems();
-  const views = { me: viewMe, all: viewAll, issues: viewIssues, assign: viewAssign, admin: viewAdmin };
+  const views = { me: viewMe, all: viewAll, issues: viewIssues, edu: () => "", assign: viewAssign, admin: viewAdmin };
   if (!nav.some(([k]) => k === S.view) || locked(S.view)) S.view = firstView(me);
   const badge = k => k !== "issues" ? "" : S.news?.count ? `<span class="badge badge--news num" title="새 소식">${I.heart}${S.news.count}</span>`
     : S.issues?.open_all ? `<span class="badge num">${S.issues.open_all}</span>` : "";
@@ -447,6 +449,20 @@ function render() {
     <nav class="tabbar" aria-label="메뉴">${nav.map(([k, l, ic, short]) => `<button data-act="go" data-v="${k}" aria-label="${l}" ${navAttr(k)}><i class="tabbar__ic">${ic}${badge(k)}</i><span>${short}</span></button>`).join("")}</nav>
   </div>${S.sheet ? renderSheet() : ""}`;
   if (S.sheet) setTimeout(() => $root.querySelector(".sheet [autofocus]")?.focus(), 30);
+  syncEdu();
+}
+// 교육 자료: 팀 교육 포털 자료실을 앱 안에 띄워요. 화면을 다시 그려도 새로 열리지 않게 #root 밖에 한 번만 만들어요.
+const EDU_URL = CFG.eduUrl || "https://linkagelab-edu.pages.dev/library";
+function syncEdu() {
+  const on = !!S.sess && !!S.board && S.view === "edu";
+  let f = document.getElementById("edu-frame");
+  if (on && !f) {
+    f = document.createElement("iframe");
+    Object.assign(f, { id: "edu-frame", src: EDU_URL, title: "교육 자료" }); f.setAttribute("allow", "fullscreen");
+    document.body.appendChild(f);
+  }
+  document.body.classList.toggle("is-edu", on);
+  document.documentElement.style.setProperty("--tabbar-h", ($root.querySelector(".tabbar")?.offsetHeight || 0) + "px");
 }
 const navBtn = ([k, l, ic], badge) => `<button data-act="go" data-v="${k}" ${navAttr(k)}>${ic}<span>${l}</span>${badge(k)}${locked(k) ? `<small class="soon">준비 중</small>` : ""}</button>`;
 
