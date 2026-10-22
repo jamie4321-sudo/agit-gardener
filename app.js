@@ -222,14 +222,15 @@ const demo = {
   async issuePhoto(t, id) { this.me(t); return this.db().photos.find(p => p.id === id)?.full_img || null; },
   async issueSave(t, id, zone, memo, place, day) {
     day = day && day <= today() ? day : today();
-    const m = this.mgr(t), d = this.db(); zone = d.zones.some(z => z.code === zone) ? zone : null; memo = String(memo || "").trim().slice(0, 1000); place = String(place || "").trim().slice(0, 40);
+    const m = this.me(t), d = this.db(); if (id && m.role === "crew" && d.issues.find(i => i.id === id)?.created_by !== m.id) throw new Error("FORBIDDEN");
+    zone = d.zones.some(z => z.code === zone) ? zone : null; memo = String(memo || "").trim().slice(0, 1000); place = String(place || "").trim().slice(0, 40);
     if (!id) { id = "i" + Date.now(); d.issues.push({ id, day, zone, place, memo, created_by: m.id, created_at: new Date().toISOString(), done_at: null, done_by: null, done_note: "" }); }
     else { const x = d.issues.find(i => i.id === id); if (!x) throw new Error("이슈를 찾지 못했어요"); Object.assign(x, { day, zone, place, memo }); }
     this.put(d); return id;
   },
   async issuePhotoAdd(t, issue, kind, ph) {
-    const m = this.me(t); if (kind === "before" && m.role === "crew") throw new Error("FORBIDDEN");
-    const d = this.db(); if (d.photos.filter(p => p.issue_id === issue && p.kind === kind).length >= 4) throw new Error("사진은 4장까지 올릴 수 있어요");
+    const m = this.me(t), d = this.db(); if (kind === "before" && m.role === "crew" && d.issues.find(i => i.id === issue)?.created_by !== m.id) throw new Error("FORBIDDEN");
+    if (d.photos.filter(p => p.issue_id === issue && p.kind === kind).length >= 4) throw new Error("사진은 4장까지 올릴 수 있어요");
     const id = "p" + Date.now() + Math.random().toString(36).slice(2, 6);
     d.photos.push({ id, issue_id: issue, kind, thumb: ph.thumb, full_img: ph.full, created_by: m.id });
     try { localStorage.setItem(DEMO_KEY, JSON.stringify(d)); } catch { throw new Error("체험 모드 저장 공간이 꽉 찼어요"); }
@@ -249,7 +250,7 @@ const demo = {
     }
     this.put(d);
   },
-  async issueDelete(t, id) { this.mgr(t); const d = this.db(); d.issues = d.issues.filter(x => x.id !== id); d.photos = d.photos.filter(p => p.issue_id !== id); this.put(d); },
+  async issueDelete(t, id) { const m = this.me(t), d = this.db(); if (m.role === "crew" && d.issues.find(i => i.id === id)?.created_by !== m.id) throw new Error("FORBIDDEN"); d.issues = d.issues.filter(x => x.id !== id); d.photos = d.photos.filter(p => p.issue_id !== id); this.put(d); },
 };
 
 // ── 상태 ──
@@ -505,7 +506,7 @@ const issuePlace = x => x.zone && x.place ? `${zoneLabel(x.zone)} · ${x.place}`
 const monday = d => { const w = (parse(d).getDay() + 6) % 7; return addDays(d, -w); };
 function issueCard(x, i) {
   const me = S.board.me, before = x.photos.filter(p => p.kind === "before"), after = x.photos.filter(p => p.kind === "after");
-  const canUndo = isMgr() || x.done_by === me.id;
+  const canUndo = isMgr() || x.done_by === me.id, canEdit = isMgr() || x.created_by === me.id;
   return `<article class="issue ${x.done_at ? "is-done" : ""}" style="--i:${i}">
       <div class="issue__h">${x.zone ? `<span class="zcode">${esc(x.zone)}</span>` : `<span class="zcode zcode--none">${I.pin}</span>`}
         <div><b>${esc(issuePlace(x))}</b><small>${esc(x.created_name || "알 수 없음")} · ${x.carry ? fmtShort(x.day) + "부터" : fmtShort(x.day)}</small></div>
@@ -516,19 +517,19 @@ function issueCard(x, i) {
       <div class="issue__acts">
         ${x.done_at ? (canUndo ? `<button class="btn btn--sm" data-act="issue-done" data-id="${esc(x.id)}">조치 내용 수정</button><button class="btn btn--sm" data-act="issue-undo" data-id="${esc(x.id)}">진행 중으로</button>` : "")
                     : `<button class="btn btn--main" data-act="issue-done" data-id="${esc(x.id)}">${I.check} 조치 완료</button>`}
-        ${isMgr() ? `<button class="btn btn--sm" data-act="edit-issue" data-id="${esc(x.id)}">${x.done_at ? "이슈 수정" : "수정"}</button><button class="btn btn--sm btn--danger" data-act="ask-del" data-k="issue" data-id="${esc(x.id)}">삭제</button>` : ""}
+        ${canEdit ? `<button class="btn btn--sm" data-act="edit-issue" data-id="${esc(x.id)}">${x.done_at ? "이슈 수정" : "수정"}</button><button class="btn btn--sm btn--danger" data-act="ask-del" data-k="issue" data-id="${esc(x.id)}">삭제</button>` : ""}
       </div></article>`;
 }
 // 현장 이슈 · 주간 보기 (월~일). 이번 주에는 지난주부터 남은 진행 중 이슈도 같이 보여요.
 function viewIssues() {
   const wk = S.issueWeek || monday(today()), cur = wk === monday(today()), tab = S.issueTab || "all", d = S.issues;
-  const head = `<header class="head"><h1>현장 이슈</h1><p>${isMgr() ? "현장 사진으로 이슈를 남기고, 주마다 모아 봐요." : "매니저가 남긴 현장 이슈예요. 조치했으면 '조치 완료'를 눌러요."}</p></header>`;
+  const head = `<header class="head"><h1>현장 이슈</h1><p>현장 사진으로 이슈를 남기고, 조치했으면 '조치 완료'를 눌러요.</p></header>`;
   const bar = `<div class="datebar"><div class="d">
       <button data-act="iweek" data-n="-7" aria-label="지난주">${I.left}</button>
       <label>${fmtShort(wk)} – ${fmtShort(addDays(wk, 6))}${cur ? " · 이번 주" : ""}<input type="date" value="${wk}" max="${today()}" data-act="iweekset" aria-label="주 고르기"></label>
       <button data-act="iweek" data-n="7" aria-label="다음 주" ${cur ? "disabled" : ""}>${I.right}</button></div>
     ${cur ? "" : `<button class="tool" data-act="iweek-now">이번 주로</button>`}</div>`;
-  const add = isMgr() ? `<button class="btn btn--main add-btn" data-act="new-issue">${I.cam} 이슈 올리기</button>` : "";
+  const add = `<button class="btn btn--main add-btn" data-act="new-issue">${I.cam} 이슈 올리기</button>`;
   if (d?.missing) return `${head}<div class="empty"><b>서버 업데이트가 필요해요</b><p>Supabase 에서 v4.sql 을 실행하면 열려요.</p></div>`;
   if (!d || d.week !== wk) return `${head}${bar}${add}<div class="empty"><p>불러오는 중…</p></div>`;
   const inWeek = d.items.filter(x => !x.carry), carry = d.items.filter(x => x.carry);
@@ -544,7 +545,7 @@ function viewIssues() {
     const list = cards.filter(x => x.day === day);
     return `<section class="dayg"><h2 class="dayh">${dayWord(day) === "오늘" || dayWord(day) === "어제" ? dayWord(day) + " · " : ""}${fmtDay(day)} <span class="num">${list.length}</span></h2><div class="issues">${list.map(x => issueCard(x, i++)).join("")}</div></section>`;
   }).join("");
-  if (!body) body = `<div class="empty"><b>${tab === "open" ? "진행 중인 이슈가 없어요" : tab === "done" ? "조치 완료한 이슈가 없어요" : cur ? "이번 주 이슈가 아직 없어요" : "이 주에는 이슈가 없었어요"}</b><p>${isMgr() && cur ? "현장에서 사진을 찍어 올려 보세요." : "주를 바꿔서 볼 수 있어요."}</p></div>`;
+  if (!body) body = `<div class="empty"><b>${tab === "open" ? "진행 중인 이슈가 없어요" : tab === "done" ? "조치 완료한 이슈가 없어요" : cur ? "이번 주 이슈가 아직 없어요" : "이 주에는 이슈가 없었어요"}</b><p>${cur ? "현장에서 사진을 찍어 올려 보세요." : "주를 바꿔서 볼 수 있어요."}</p></div>`;
   return `${head}${bar}${sum}${add}${seg}${body}`;
 }
 async function loadIssues() {
@@ -632,7 +633,7 @@ function renderSheet() {
       <div class="sheet__b">
         <div class="field"><label for="m-name">이름</label><input id="m-name" value="${esc(s.name)}" maxlength="20" autocomplete="off" ${isNew ? "autofocus" : ""}></div>
         <div class="field"><span>역할</span><div class="seg" role="group">${["crew", "manager", "admin"].map(r => `<button data-act="role" data-r="${r}" aria-pressed="${s.role === r}">${roleName(r)}</button>`).join("")}</div>
-          <small>${{ crew: "가드너는 내 업무·전체 보기·현장 이슈를 봐요.", manager: "매니저는 업무 배정과 현장 이슈 올리기를 해요.", admin: "관리자는 매니저 일에 더해 크루·비밀번호·층 목록을 관리해요." }[s.role]}</small></div>
+          <small>${{ crew: "가드너는 내 업무·전체 보기를 보고, 현장 이슈를 올려요.", manager: "매니저는 업무 배정과 모든 현장 이슈 고치기·지우기를 해요.", admin: "관리자는 매니저 일에 더해 크루·비밀번호·층 목록을 관리해요." }[s.role]}</small></div>
         ${isNew ? `<div class="field"><label for="m-pin">비밀번호 (숫자 4자리)</label><input id="m-pin" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="0000"></div>` : ""}
       </div>
       <div class="sheet__f"><button class="btn btn--ghost" data-act="close">취소</button><button class="btn btn--main" data-act="save-member">저장하기</button></div></section>`;
