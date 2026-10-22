@@ -4,7 +4,7 @@
 "use strict";
 
 const CFG = window.AG_CONFIG || {};
-const ASSIGN_ON = CFG.assignOn !== false; // false 면 배정 메뉴를 숨기고 현장 이슈만
+const ASSIGN_ON = CFG.assignOn !== false; // false 면 배정 메뉴를 흐리게 잠그고 현장 이슈만
 const $root = document.getElementById("root");
 const SESSION_KEY = "ag-session", PREF_KEY = "ag-pref", DEMO_KEY = "ag-demo";
 const COLORS = ["#16a34a", "#2563eb", "#ea580c", "#7c3aed", "#0d9488", "#db2777", "#475569", "#b45309"];
@@ -372,9 +372,11 @@ async function pressKey(k) {
 // ── 앱 화면 ──
 // [키, 이름, 아이콘, 휴대폰 아래 탭 이름]
 const MGR_VIEWS = ["assign", "admin"];
+const locked = k => !ASSIGN_ON && ["me", "all", "assign"].includes(k);
+const navAttr = k => locked(k) ? 'aria-disabled="true" class="is-off" title="준비 중이에요"' : S.view === k ? 'aria-current="page"' : "";
 function navItems() {
-  const items = ASSIGN_ON ? [["me", "내 업무", I.me, "내 업무"], ["all", "전체 보기", I.all, "전체"], ["issues", "현장 이슈", I.issue, "현장 이슈"]] : [["issues", "현장 이슈", I.issue, "현장 이슈"]];
-  if (ASSIGN_ON && isMgr()) items.push(["assign", "업무 배정", I.assign, "배정"]);
+  const items = [["me", "내 업무", I.me, "내 업무"], ["all", "전체 보기", I.all, "전체"], ["issues", "현장 이슈", I.issue, "현장 이슈"]];
+  if (isMgr()) items.push(["assign", "업무 배정", I.assign, "배정"]);
   if (isAdmin()) items.push(["admin", "관리자 설정", I.team, "설정"]);
   return items;
 }
@@ -382,7 +384,7 @@ function render() {
   if (!S.board) return;
   const me = S.board.me, nav = navItems();
   const views = { me: viewMe, all: viewAll, issues: viewIssues, assign: viewAssign, admin: viewAdmin };
-  if (!nav.some(([k]) => k === S.view)) S.view = firstView(me);
+  if (!nav.some(([k]) => k === S.view) || locked(S.view)) S.view = firstView(me);
   const badge = k => k === "issues" && S.issues?.open_all ? `<span class="badge num">${S.issues.open_all}</span>` : "";
   const banner = S.mode === "demo" ? `<span class="mode-banner">체험 모드<span class="d-only"> · 이 기기에만 저장</span></span>` : "";
   $root.innerHTML = `<div class="app">
@@ -401,11 +403,11 @@ function render() {
       </div>
       ${views[S.view]()}
     </main>
-    ${nav.length < 2 ? "" : `<nav class="tabbar" aria-label="메뉴">${nav.map(([k, l, ic, short]) => `<button data-act="go" data-v="${k}" aria-label="${l}" ${S.view === k ? 'aria-current="page"' : ""}><i class="tabbar__ic">${ic}${badge(k)}</i><span>${short}</span></button>`).join("")}</nav>`}
+    <nav class="tabbar" aria-label="메뉴">${nav.map(([k, l, ic, short]) => `<button data-act="go" data-v="${k}" aria-label="${l}" ${navAttr(k)}><i class="tabbar__ic">${ic}${badge(k)}</i><span>${short}</span></button>`).join("")}</nav>
   </div>${S.sheet ? renderSheet() : ""}`;
   if (S.sheet) setTimeout(() => $root.querySelector(".sheet [autofocus]")?.focus(), 30);
 }
-const navBtn = ([k, l, ic], badge) => `<button data-act="go" data-v="${k}" ${S.view === k ? 'aria-current="page"' : ""}>${ic}<span>${l}</span>${badge(k)}</button>`;
+const navBtn = ([k, l, ic], badge) => `<button data-act="go" data-v="${k}" ${navAttr(k)}>${ic}<span>${l}</span>${badge(k)}${locked(k) ? `<small class="soon">준비 중</small>` : ""}</button>`;
 
 function dateBar() {
   if (!isMgr()) return "";
@@ -723,7 +725,7 @@ async function act(a, el) {
       case "logout":
         if (!confirm("로그아웃 할까요?")) return;
         S.api.logout(S.sess.token); logoutLocal(); await showLogin(); break;
-      case "go": S.view = el.dataset.v; render(); window.scrollTo({ top: 0 }); if (S.view === "issues") { await loadIssues(); if (!S.sheet) render(); } break;
+      case "go": if (locked(el.dataset.v)) { toast("배정은 준비 중이에요"); break; } S.view = el.dataset.v; render(); window.scrollTo({ top: 0 }); if (S.view === "issues") { await loadIssues(); if (!S.sheet) render(); } break;
       case "big": pref.big = !pref.big; save(PREF_KEY, pref); applyPref(); render(); break;
       case "theme": {
         const dark = pref.theme ? pref.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
