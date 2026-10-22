@@ -4,6 +4,7 @@
 "use strict";
 
 const CFG = window.AG_CONFIG || {};
+const ASSIGN_ON = CFG.assignOn !== false; // false 면 배정 메뉴를 숨기고 현장 이슈만
 const $root = document.getElementById("root");
 const SESSION_KEY = "ag-session", PREF_KEY = "ag-pref", DEMO_KEY = "ag-demo";
 const COLORS = ["#16a34a", "#2563eb", "#ea580c", "#7c3aed", "#0d9488", "#db2777", "#475569", "#b45309"];
@@ -265,7 +266,7 @@ const isAdmin = () => S.board?.me.role === "admin";
 const ROLE = { admin: "관리자", manager: "매니저", crew: "가드너" };
 const roleName = r => ROLE[r] || "가드너";
 const workers = () => (S.board?.members || []).filter(m => m.role !== "admin");   // 층을 맡는 사람 (관리자는 빠짐)
-const firstView = me => me.role === "admin" ? "all" : me.role === "manager" && !assignOf(me.id)?.zones.length ? "all" : "me";
+const firstView = me => !ASSIGN_ON ? "issues" : me.role === "admin" ? "all" : me.role === "manager" && !assignOf(me.id)?.zones.length ? "all" : "me";
 const applyPref = () => {
   const r = document.documentElement;
   if (pref.big) r.dataset.big = "1"; else delete r.dataset.big;
@@ -370,9 +371,10 @@ async function pressKey(k) {
 
 // ── 앱 화면 ──
 // [키, 이름, 아이콘, 휴대폰 아래 탭 이름]
+const MGR_VIEWS = ["assign", "admin"];
 function navItems() {
-  const items = [["me", "내 업무", I.me, "내 업무"], ["all", "전체 보기", I.all, "전체"], ["issues", "현장 이슈", I.issue, "현장 이슈"]];
-  if (isMgr()) items.push(["assign", "업무 배정", I.assign, "배정"]);
+  const items = ASSIGN_ON ? [["me", "내 업무", I.me, "내 업무"], ["all", "전체 보기", I.all, "전체"], ["issues", "현장 이슈", I.issue, "현장 이슈"]] : [["issues", "현장 이슈", I.issue, "현장 이슈"]];
+  if (ASSIGN_ON && isMgr()) items.push(["assign", "업무 배정", I.assign, "배정"]);
   if (isAdmin()) items.push(["admin", "관리자 설정", I.team, "설정"]);
   return items;
 }
@@ -380,13 +382,13 @@ function render() {
   if (!S.board) return;
   const me = S.board.me, nav = navItems();
   const views = { me: viewMe, all: viewAll, issues: viewIssues, assign: viewAssign, admin: viewAdmin };
-  if (!views[S.view] || (!isMgr() && S.view === "assign") || (!isAdmin() && S.view === "admin")) S.view = "me";
+  if (!nav.some(([k]) => k === S.view)) S.view = firstView(me);
   const badge = k => k === "issues" && S.issues?.open_all ? `<span class="badge num">${S.issues.open_all}</span>` : "";
   const banner = S.mode === "demo" ? `<span class="mode-banner">체험 모드<span class="d-only"> · 이 기기에만 저장</span></span>` : "";
   $root.innerHTML = `<div class="app">
     <aside class="side" aria-label="메뉴">
       <div class="brand"><span class="mark">${I.leaf}</span><div><b>아지트 가드너</b><span>KAKAO AGIT · LINKAGELAB</span></div></div>
-      <nav class="nav"><h6>메뉴</h6>${nav.slice(0, 3).map(n => navBtn(n, badge)).join("")}${nav.length > 3 ? `<h6>${isAdmin() ? "관리자" : "매니저"}</h6>${nav.slice(3).map(n => navBtn(n, badge)).join("")}` : ""}</nav>
+      <nav class="nav"><h6>메뉴</h6>${nav.filter(([k]) => !MGR_VIEWS.includes(k)).map(n => navBtn(n, badge)).join("")}${nav.some(([k]) => MGR_VIEWS.includes(k)) ? `<h6>${isAdmin() ? "관리자" : "매니저"}</h6>${nav.filter(([k]) => MGR_VIEWS.includes(k)).map(n => navBtn(n, badge)).join("")}` : ""}</nav>
       <div class="side__me">${avatar(me, "av--sm")}<div><b>${esc(me.name)}</b><small>${roleName(me.role)}</small></div><button class="btn btn--ghost" data-act="logout">나가기</button></div>
     </aside>
     <main class="main" id="main">
@@ -399,7 +401,7 @@ function render() {
       </div>
       ${views[S.view]()}
     </main>
-    <nav class="tabbar" aria-label="메뉴">${nav.map(([k, l, ic, short]) => `<button data-act="go" data-v="${k}" aria-label="${l}" ${S.view === k ? 'aria-current="page"' : ""}><i class="tabbar__ic">${ic}${badge(k)}</i><span>${short}</span></button>`).join("")}</nav>
+    ${nav.length < 2 ? "" : `<nav class="tabbar" aria-label="메뉴">${nav.map(([k, l, ic, short]) => `<button data-act="go" data-v="${k}" aria-label="${l}" ${S.view === k ? 'aria-current="page"' : ""}><i class="tabbar__ic">${ic}${badge(k)}</i><span>${short}</span></button>`).join("")}</nav>`}
   </div>${S.sheet ? renderSheet() : ""}`;
   if (S.sheet) setTimeout(() => $root.querySelector(".sheet [autofocus]")?.focus(), 30);
 }
