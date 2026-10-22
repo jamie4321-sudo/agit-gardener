@@ -332,7 +332,7 @@ button.shot:active{transform:scale(.96)}
 @media (max-width:860px){
   .app{grid-template-columns:1fr}
   .side{display:none}
-  .main{padding:1rem 16px calc(7rem + env(safe-area-inset-bottom));gap:1.25rem}
+  .main{padding:.75rem 16px calc(6.5rem + env(safe-area-inset-bottom));gap:.85rem}
   .m-only{display:inline-flex}
   .d-only{display:none}
   .topbar .tool span{display:none}
@@ -358,13 +358,49 @@ button.shot:active{transform:scale(.96)}
   .add-btn{align-self:stretch}
   .main>.seg,.view-seg{align-self:stretch}
   .main>.seg button{flex:1}
-  .head h1{font-size:1.75rem}
-  .head p{font-size:1rem}
-  .tiles{grid-template-columns:1fr}
+  .head h1{font-size:1.5rem}
+  .head p{font-size:.95rem;margin-top:.2rem}
+  .tiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem}
+  .tile{gap:.6rem;padding:.85rem .75rem .75rem}
+  .tile__z{gap:.4rem}
+  .tile__z b{font-size:2.4rem;letter-spacing:-1.5px}
+  .tile__z div>span{margin-top:.2rem;font-size:.92rem}
+  .sec-h span{font-size:1.15rem!important}
+  .tile .check{width:2.2rem;height:2.2rem}
+  .tile .check svg{width:1.2rem;height:1.2rem}
+  .tile .btn{min-height:3.2rem;font-size:1.05rem;padding:.3rem .4rem;margin-top:auto}
+  .tile .undo b{font-size:1.05rem}
+  .tile .undo small{font-size:.68rem;white-space:nowrap}
+  .tile__note{font-size:.95rem;padding:.6rem .7rem;gap:.4rem}
+  .tile__note>svg{display:none}
+  .progress{padding:.7rem 1rem}
+  .progress b{font-size:1.1rem}
+  .memo{padding:.95rem 1rem}
+  .memo p{font-size:1.05rem}
   .zones{grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem}
   .zone{min-height:8rem;padding:.9rem}
   .zone__t b{font-size:1.9rem}
-  .who{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .who{grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem}
+  /* 로그인·비밀번호: 휴대폰 한 화면에 */
+  .login{min-height:100dvh;padding:clamp(16px,3.5vh,32px) 16px 20px;gap:clamp(.75rem,2.2vh,1.25rem)}
+  .login .mark{width:2.6rem;height:2.6rem;border-radius:.85rem;margin-bottom:.3rem}
+  .login .mark svg{width:1.5rem;height:1.5rem}
+  .login__brand b{font-size:1.45rem}
+  .login__brand span{font-size:.7rem}
+  .login h1{font-size:1.35rem;line-height:1.3}
+  .login h1 small{font-size:.95rem!important}
+  .who button{gap:.35rem;padding:.8rem .5rem .75rem}
+  .who .av{--s:3.1rem}
+  .who b{font-size:1.1rem;line-height:1.25}
+  .who small{font-size:.75rem}
+  .pin{gap:clamp(.6rem,1.8vh,1rem)}
+  .pin__who{gap:.3rem}
+  .pin__who .av{--s:3.4rem}
+  .pin__who b{font-size:1.3rem}
+  .pin__q{font-size:1.1rem}
+  .pin__msg{min-height:1.3rem;font-size:.95rem}
+  .pad{gap:.5rem}
+  .pad button{height:clamp(3.4rem,8vh,4.2rem)}
   .people{grid-template-columns:1fr}
   .issues{grid-template-columns:1fr}
   .wsum{gap:.45rem}

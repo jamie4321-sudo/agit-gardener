@@ -552,7 +552,7 @@ async function loadIssues() {
     if (missingFn(e)) S.issues = { open_all: 0, items: [], week: wk, missing: true };
   }
 }
-// 사진 줄이기: 큰 사진(긴 변 1600px)과 목록용 작은 사진(360px)
+// 사진 줄이기: 큰 사진(긴 변 1280px)과 목록용 작은 사진(320px) — DB 용량 아끼려고 1600→1280
 async function shrink(file) {
   const url = URL.createObjectURL(file);
   try {
@@ -562,7 +562,7 @@ async function shrink(file) {
       c.width = Math.round(img.naturalWidth * r); c.height = Math.round(img.naturalHeight * r);
       c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); return c.toDataURL("image/jpeg", q);
     };
-    return S.mode === "demo" ? { full: draw(900, .6), thumb: draw(240, .6) } : { full: draw(1600, .8), thumb: draw(360, .7) };
+    return S.mode === "demo" ? { full: draw(900, .6), thumb: draw(240, .6) } : { full: draw(1280, .72), thumb: draw(320, .65) };
   } finally { URL.revokeObjectURL(url); }
 }
 const photoPicker = (s, label) => {
