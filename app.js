@@ -49,6 +49,7 @@ const I = {
   pin: '<svg class="i" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></svg>',
   heart: '<svg class="i" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z"/></svg>',
   send: '<svg class="i" viewBox="0 0 24 24"><path d="M4 12 20 4l-4 16-4-7z"/><path d="m12 13 8-9"/></svg>',
+  cmp: '<svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M12 3v18"/></svg>',
   key: '<svg class="i" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 12 8.5-8.5M16 7l2.5 2.5M14 9l2 2"/></svg>',
 };
 
@@ -90,7 +91,9 @@ const remote = {
   issueDelete(t, id) { return this.rpc("ag_issue_delete", { p_token: t, p_id: id }); },
   commentAdd(t, issue, body) { return this.rpc("ag_issue_comment_add", { p_token: t, p_issue: issue, p_body: body }); },
   commentDelete(t, id) { return this.rpc("ag_issue_comment_delete", { p_token: t, p_id: id }); },
-  heart(t, issue, on) { return this.rpc("ag_issue_heart", { p_token: t, p_issue: issue, p_on: on }); },
+  react(t, issue, kind, on) { return this.rpc("ag_issue_react", { p_token: t, p_issue: issue, p_kind: kind, p_on: on }); },
+  news(t) { return this.rpc("ag_issue_news", { p_token: t }); },
+  newsSeen(t) { return this.rpc("ag_issue_news_seen", { p_token: t }); },
 };
 
 // ── 백엔드: 체험 모드 (이 기기 localStorage, SQL 과 같은 규칙) ──
@@ -224,7 +227,7 @@ const demo = {
       .map(x => ({ ...x, carry: x.day < from, created_name: nm(x.created_by), done_name: nm(x.done_by),
         photos: d.photos.filter(p => p.issue_id === x.id).map(p => ({ id: p.id, kind: p.kind, thumb: p.thumb, by: p.created_by })),
         comments: d.comments.filter(c => c.issue_id === x.id).map(c => ({ id: c.id, body: c.body, by: c.created_by, name: nm(c.created_by), at: c.created_at })),
-        hearts: d.hearts.filter(h => h.issue_id === x.id).map(h => ({ by: h.member_id, name: nm(h.member_id) })) }));
+        hearts: d.hearts.filter(h => h.issue_id === x.id).map(h => ({ by: h.member_id, kind: h.kind || "heart", name: nm(h.member_id) })) }));
     const places = [...new Set([...d.issues].sort((a, b) => b.created_at.localeCompare(a.created_at)).map(x => x.place).filter(Boolean))].slice(0, 12);
     return { from, to, open_all: d.issues.filter(x => !x.done_at).length, places, items };
   },
@@ -270,11 +273,23 @@ const demo = {
     if (c && m.role === "crew" && c.created_by !== m.id) throw new Error("FORBIDDEN");
     d.comments = d.comments.filter(x => x.id !== id); this.put(d);
   },
-  async heart(t, issue, on) {
-    const m = this.me(t), d = this.db(); d.hearts = d.hearts.filter(h => !(h.issue_id === issue && h.member_id === m.id));
-    if (on) { if (!d.issues.find(i => i.id === issue)?.done_at) throw new Error("조치 완료한 이슈에만 하트를 누를 수 있어요"); d.hearts.push({ issue_id: issue, member_id: m.id }); }
+  async react(t, issue, kind, on) {
+    const m = this.me(t), d = this.db(); d.hearts = d.hearts.filter(h => !(h.issue_id === issue && h.member_id === m.id && (h.kind || "heart") === kind));
+    if (on) { if (!d.issues.find(i => i.id === issue)?.done_at) throw new Error("조치 완료한 이슈에만 칭찬을 남길 수 있어요"); d.hearts.push({ issue_id: issue, member_id: m.id, kind, created_at: new Date().toISOString() }); }
     this.put(d);
   },
+  async news(t) {
+    const m = this.me(t), d = this.db(), nm = id => d.members.find(x => x.id === id)?.name || "";
+    d.seen = d.seen || {}; if (!d.seen[m.id]) { d.seen[m.id] = new Date().toISOString(); this.put(d); }
+    const since = d.seen[m.id], mine = d.issues.filter(i => i.created_by === m.id || i.done_by === m.id), at = id => mine.find(i => i.id === id);
+    const pick = (x, i) => ({ issue: i.id, day: i.day, zone: i.zone, place: i.place, memo: (i.memo || "").slice(0, 40), name: nm(x.by), at: x.at });
+    const items = [
+      ...d.hearts.filter(h => at(h.issue_id) && h.member_id !== m.id && (h.created_at || "") > since).map(h => ({ type: "react", kind: h.kind || "heart", ...pick({ by: h.member_id, at: h.created_at }, at(h.issue_id)) })),
+      ...d.comments.filter(c => at(c.issue_id) && c.created_by !== m.id && c.created_at > since).map(c => ({ type: "comment", body: c.body.slice(0, 80), ...pick({ by: c.created_by, at: c.created_at }, at(c.issue_id)) })),
+    ].sort((a, b) => b.at.localeCompare(a.at));
+    return { count: items.length, items: items.slice(0, 20) };
+  },
+  async newsSeen(t) { const m = this.me(t), d = this.db(); d.seen = d.seen || {}; d.seen[m.id] = new Date().toISOString(); this.put(d); },
 };
 
 // ── 상태 ──
@@ -410,7 +425,8 @@ function render() {
   const me = S.board.me, nav = navItems();
   const views = { me: viewMe, all: viewAll, issues: viewIssues, assign: viewAssign, admin: viewAdmin };
   if (!nav.some(([k]) => k === S.view) || locked(S.view)) S.view = firstView(me);
-  const badge = k => k === "issues" && S.issues?.open_all ? `<span class="badge num">${S.issues.open_all}</span>` : "";
+  const badge = k => k !== "issues" ? "" : S.news?.count ? `<span class="badge badge--news num" title="새 소식">${I.heart}${S.news.count}</span>`
+    : S.issues?.open_all ? `<span class="badge num">${S.issues.open_all}</span>` : "";
   const banner = S.mode === "demo" ? `<span class="mode-banner">체험 모드<span class="d-only"> · 이 기기에만 저장</span></span>` : "";
   $root.innerHTML = `<div class="app">
     <aside class="side" aria-label="메뉴">
@@ -531,13 +547,13 @@ const monday = d => { const w = (parse(d).getDay() + 6) % 7; return addDays(d, -
 function issueCard(x, i) {
   const me = S.board.me, before = x.photos.filter(p => p.kind === "before"), after = x.photos.filter(p => p.kind === "after");
   const canUndo = isMgr() || x.done_by === me.id, canEdit = isMgr() || x.created_by === me.id;
-  return `<article class="issue ${x.done_at ? "is-done" : ""}" style="--i:${i}">
+  return `<article class="issue ${x.done_at ? "is-done" : ""}${S.flash === x.id ? " is-flash" : ""}" id="is-${esc(x.id)}" style="--i:${i}">
       <div class="issue__h">${x.zone ? `<span class="zcode">${esc(x.zone)}</span>` : `<span class="zcode zcode--none">${I.pin}</span>`}
         <div><b>${esc(issuePlace(x))}</b><small>${esc(x.created_name || "알 수 없음")} · ${x.carry ? fmtShort(x.day) + "부터" : fmtShort(x.day)}</small></div>
         ${x.done_at ? `<span class="state state--done">${I.check} 조치 완료</span>` : `<span class="state">진행 중</span>`}</div>
       ${x.memo ? `<p class="issue__memo">${esc(x.memo)}</p>` : ""}
       ${thumbs(before, x.done_at ? "조치 전" : "현장 사진")}
-      ${x.done_at ? `<div class="issue__done"><p class="issue__by">${I.ok}<span><b>${esc(x.done_name || "알 수 없음")}</b> · ${fmtWhen(x.done_at)} 조치</span></p>${x.done_note ? `<p class="issue__memo">${esc(x.done_note)}</p>` : ""}${thumbs(after, "조치 후")}</div>` : ""}
+      ${x.done_at ? `<div class="issue__done"><p class="issue__by">${I.ok}<span><b>${esc(x.done_name || "알 수 없음")}</b> · ${fmtWhen(x.done_at)} 조치</span></p>${x.done_note ? `<p class="issue__memo">${esc(x.done_note)}</p>` : ""}${thumbs(after, "조치 후")}${before.length && after.length ? `<button class="btn btn--sm cmp-btn" data-act="compare" data-id="${esc(x.id)}">${I.cmp} 조치 전·후 비교</button>` : ""}</div>` : ""}
       ${x.done_at && x.comments ? issueTalk(x) : ""}
       <div class="issue__acts">
         ${x.done_at ? (canUndo ? `<button class="btn btn--sm" data-act="issue-done" data-id="${esc(x.id)}">조치 내용 수정</button><button class="btn btn--sm" data-act="issue-undo" data-id="${esc(x.id)}">진행 중으로</button>` : "")
@@ -546,13 +562,20 @@ function issueCard(x, i) {
       </div></article>`;
 }
 // 조치 완료한 이슈 아래: 하트 + 댓글
+const CHEERS = [["heart", "", "하트"], ["thanks", "🌱", "고마워요"], ["best", "👏", "최고예요"], ["clean", "✨", "깔끔해요"]];
+const cheerName = k => CHEERS.find(c => c[0] === k)?.[2] || "하트";
 function issueTalk(x) {
-  const me = S.board.me, hearts = x.hearts || [], mine = hearts.some(h => h.by === me.id);
-  const who = hearts.length ? hearts.map(h => h.name || "알 수 없음").join(", ") : "수고했어요, 하트를 눌러 주세요";
+  const me = S.board.me, hearts = (x.hearts || []).map(h => ({ ...h, kind: h.kind || "heart" }));
+  const names = [...new Set(hearts.map(h => h.name || "알 수 없음"))];
+  const who = names.length ? `${names.join(", ")}님이 칭찬했어요` : "수고했어요, 칭찬을 남겨 주세요";
+  const chips = CHEERS.map(([k, emo, label]) => {
+    const list = hearts.filter(h => h.kind === k), on = list.some(h => h.by === me.id);
+    return `<button class="cheer cheer--${k}" data-act="react" data-id="${esc(x.id)}" data-k="${k}" aria-pressed="${on}" aria-label="${label} ${on ? "빼기" : "누르기"}">${k === "heart" ? I.heart : `<span class="cheer__e" aria-hidden="true">${emo}</span>${label}`}${list.length || k === "heart" ? `<span class="num">${list.length}</span>` : ""}</button>`;
+  }).join("");
   const list = x.comments.map(c => `<li class="cmt"><div class="cmt__h"><b>${esc(c.name || "알 수 없음")}</b><small>${fmtWhen(c.at)}</small>
       ${isMgr() || c.by === me.id ? `<button class="cmt__x" data-act="cmt-del" data-id="${esc(c.id)}" aria-label="댓글 지우기">${I.x}</button>` : ""}</div><p>${esc(c.body)}</p></li>`).join("");
   return `<div class="talk">
-      <div class="talk__heart"><button class="heart" data-act="heart" data-id="${esc(x.id)}" aria-pressed="${mine}" aria-label="하트 ${mine ? "빼기" : "누르기"}">${I.heart}<span class="num">${hearts.length}</span></button><small>${esc(who)}</small></div>
+      <div class="cheers">${chips}</div><small class="cheers__who">${esc(who)}</small>
       ${list ? `<ul class="cmts">${list}</ul>` : ""}
       <form class="cmt-in" data-issue="${esc(x.id)}"><input type="text" maxlength="500" placeholder="댓글 남기기" aria-label="댓글" enterkeyhint="send"><button class="btn btn--sm" aria-label="댓글 올리기">${I.send}</button></form>
     </div>`;
@@ -583,16 +606,28 @@ function viewIssues() {
     return `<section class="dayg"><h2 class="dayh">${dayWord(day) === "오늘" || dayWord(day) === "어제" ? dayWord(day) + " · " : ""}${fmtDay(day)} <span class="num">${list.length}</span></h2><div class="issues">${list.map(x => issueCard(x, i++)).join("")}</div></section>`;
   }).join("");
   if (!body) body = `<div class="empty"><b>${tab === "open" ? "진행 중인 이슈가 없어요" : tab === "done" ? "조치 완료한 이슈가 없어요" : cur ? "이번 주 이슈가 아직 없어요" : "이 주에는 이슈가 없었어요"}</b><p>${cur ? "현장에서 사진을 찍어 올려 보세요." : "주를 바꿔서 볼 수 있어요."}</p></div>`;
-  return `${head}${bar}${sum}${add}${seg}${body}`;
+  return `${head}${newsCard()}${bar}${sum}${add}${seg}${body}`;
+}
+// 새 소식: 내가 올리거나 조치한 이슈에 다른 사람이 남긴 칭찬·댓글
+function newsCard() {
+  const n = S.news; if (!n?.count) return "";
+  const line = y => y.type === "comment" ? `<b>${esc(y.name || "알 수 없음")}</b>님 댓글 “${esc(y.body)}”`
+    : `<b>${esc(y.name || "알 수 없음")}</b>님이 ${y.kind === "heart" ? "하트를 눌렀어요" : `‘${cheerName(y.kind)}’를 남겼어요`}`;
+  const emo = y => y.type === "comment" ? I.msg : y.kind === "heart" ? I.heart : `<span aria-hidden="true">${CHEERS.find(c => c[0] === y.kind)?.[1] || ""}</span>`;
+  return `<section class="news" aria-label="새 소식"><div class="news__h"><h2>새 소식 <span class="num">${n.count}</span></h2><button class="btn btn--sm" data-act="news-seen">확인했어요</button></div>
+    <ul>${n.items.slice(0, 5).map(y => `<li><button data-act="news-go" data-id="${esc(y.issue)}" data-day="${esc(y.day)}"><i class="news__ic ${y.type === "comment" ? "" : "is-" + esc(y.kind)}">${emo(y)}</i>
+      <span><span class="news__t">${line(y)}</span><small>${esc(issuePlace(y))} · ${fmtWhen(y.at)}</small></span></button></li>`).join("")}</ul></section>`;
 }
 async function loadIssues() {
   if (!S.sess) return;
   const wk = S.issueWeek || monday(today());
+  const news = S.api.news(S.sess.token).then(n => { S.news = n; }, () => { S.news = null; });
   try { S.issues = { ...(await S.api.issueWeek(S.sess.token, wk)), week: wk }; }
   catch (e) {
     if (e.code === "28000" || /AUTH/.test(e.message)) throw e;
     if (missingFn(e)) S.issues = { open_all: 0, items: [], week: wk, missing: true };
   }
+  await news;
 }
 // 사진 줄이기: 큰 사진(긴 변 1280px)과 목록용 작은 사진(320px) — DB 용량 아끼려고 1600→1280
 async function shrink(file) {
@@ -726,6 +761,14 @@ function renderSheet() {
     return `<div class="scrim scrim--dark" data-act="close"></div><section class="viewer" role="dialog" aria-modal="true" aria-label="사진 크게 보기">
       <button class="x" data-act="close" aria-label="닫기" autofocus>${I.x}</button>
       ${s.src ? `<img src="${s.src}" alt="현장 사진">` : `<p>${s.err ? esc(s.err) : "불러오는 중…"}</p>`}</section>`;
+  }
+  if (s.type === "compare") {
+    return `<div class="scrim scrim--dark" data-act="close"></div><section class="viewer cmp" role="dialog" aria-modal="true" aria-label="조치 전후 비교">
+      <button class="x" data-act="close" aria-label="닫기" autofocus>${I.x}</button>
+      <div class="cmp__box" style="--x:${s.x}%" role="slider" tabindex="0" aria-label="조치 전후 비교 위치" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(s.x)}">
+        <img class="cmp__b" src="${s.bsrc}" alt="조치 전" draggable="false"><img class="cmp__a" src="${s.asrc}" alt="조치 후" draggable="false">
+        <span class="cmp__line"><i>${I.left}${I.right}</i></span><span class="cmp__tag">조치 전</span><span class="cmp__tag cmp__tag--a">조치 후</span></div>
+      <p class="cmp__hint">가운데 선을 좌우로 밀어 보세요</p></section>`;
   }
   if (s.type === "confirm") {
     const isZone = s.kind === "zone", isIssue = s.kind === "issue", m = isZone || isIssue ? null : S.board.members.find(x => x.id === s.id);
@@ -873,11 +916,26 @@ async function act(a, el) {
         await S.api.issueDone(S.sess.token, s.id, true, s.note.trim());
         S.sheet = null; await refresh(); navigator.vibrate?.(40); toast(edit ? "조치 내용을 고쳤어요" : "조치 완료했어요. 수고했어요"); break;
       }
-      case "heart": {
-        const x = S.issues.items.find(i => i.id === el.dataset.id), on = !x.hearts.some(h => h.by === S.board.me.id);
-        x.hearts = on ? [...x.hearts, { by: S.board.me.id, name: S.board.me.name }] : x.hearts.filter(h => h.by !== S.board.me.id); render();
+      case "react": {
+        const x = S.issues.items.find(i => i.id === el.dataset.id), k = el.dataset.k, me = S.board.me;
+        const mineK = h => h.by === me.id && (h.kind || "heart") === k, on = !x.hearts.some(mineK);
+        x.hearts = on ? [...x.hearts, { by: me.id, kind: k, name: me.name }] : x.hearts.filter(h => !mineK(h)); render();
         if (on) navigator.vibrate?.(20);
-        try { await S.api.heart(S.sess.token, x.id, on); } finally { await loadIssues(); if (!S.sheet) render(); }
+        try { await S.api.react(S.sess.token, x.id, k, on); } finally { await loadIssues(); if (!S.sheet) render(); }
+        break;
+      }
+      case "news-seen": el.disabled = true; await S.api.newsSeen(S.sess.token); S.news = { count: 0, items: [] }; render(); toast("새 소식을 확인했어요"); break;
+      case "news-go": {
+        const id = el.dataset.id; S.issueWeek = monday(el.dataset.day); S.issueTab = "all"; S.flash = id;
+        await loadIssues(); render();
+        document.getElementById("is-" + id)?.scrollIntoView({ behavior: "smooth", block: "center" });
+        setTimeout(() => { if (S.flash === id) S.flash = null; }, 2500); break;
+      }
+      case "compare": {
+        const x = S.issues.items.find(i => i.id === el.dataset.id), b = x.photos.find(p => p.kind === "before"), a = x.photos.find(p => p.kind === "after");
+        const s = S.sheet = { type: "compare", x: 50, bsrc: b.thumb, asrc: a.thumb }; render();
+        const [bf, af] = await Promise.all([S.api.issuePhoto(S.sess.token, b.id).catch(() => null), S.api.issuePhoto(S.sess.token, a.id).catch(() => null)]);
+        if (S.sheet === s) { s.bsrc = bf || s.bsrc; s.asrc = af || s.asrc; render(); }
         break;
       }
       case "cmt-del": {
@@ -936,6 +994,15 @@ document.addEventListener("change", async e => {
   if (e.target.dataset?.act === "iweekset" && e.target.value) { S.issueWeek = monday(e.target.value); loadIssues().then(() => !S.sheet && render()).catch(err => toast(errMsg(err))); return; }
   if (e.target.dataset?.act === "dayset" && e.target.value) { S.day = e.target.value; refresh().catch(err => toast(errMsg(err))); }
 });
+// 전·후 비교: 손가락으로 끌면 선이 따라와요 (다시 그리지 않고 --x 만 바꿔요)
+const cmpSet = (box, v) => { S.sheet.x = Math.max(0, Math.min(100, v)); box.style.setProperty("--x", S.sheet.x + "%"); box.setAttribute("aria-valuenow", Math.round(S.sheet.x)); };
+const cmpAt = (box, e) => { const r = box.getBoundingClientRect(); cmpSet(box, (e.clientX - r.left) / r.width * 100); };
+document.addEventListener("pointerdown", e => {
+  const box = e.target.closest?.(".cmp__box"); if (!box || S.sheet?.type !== "compare") return;
+  box.setPointerCapture(e.pointerId); box.dataset.drag = "1"; cmpAt(box, e);
+});
+document.addEventListener("pointermove", e => { const box = e.target.closest?.(".cmp__box"); if (box?.dataset.drag) cmpAt(box, e); });
+document.addEventListener("pointerup", e => { const box = e.target.closest?.(".cmp__box"); if (box) delete box.dataset.drag; });
 // 댓글: 엔터나 보내기 버튼
 document.addEventListener("submit", async e => {
   const f = e.target.closest(".cmt-in"); if (!f) return;
@@ -951,6 +1018,7 @@ document.addEventListener("submit", async e => {
 });
 document.addEventListener("keydown", e => {
   if (S.sheet && e.key === "Escape") { S.sheet = null; render(); return; }
+  if (S.sheet?.type === "compare" && (e.key === "ArrowLeft" || e.key === "ArrowRight")) { const box = document.querySelector(".cmp__box"); if (box) cmpSet(box, S.sheet.x + (e.key === "ArrowLeft" ? -5 : 5)); return; }
   if (!S.sess && S.pick && !S.sheet) {
     if (/^[0-9]$/.test(e.key)) pressKey(e.key);
     else if (e.key === "Backspace") { S.pin = S.pin.slice(0, -1); renderLogin(); }
