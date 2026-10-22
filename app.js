@@ -47,6 +47,8 @@ const I = {
   issue: '<svg class="i" viewBox="0 0 24 24"><path d="M5 21V4h11l-1.5 4L16 12H5"/></svg>',
   cam: '<svg class="i" viewBox="0 0 24 24"><path d="M4 8h3l1.5-2.5h7L17 8h3v11H4z"/><circle cx="12" cy="13.2" r="3.4"/></svg>',
   pin: '<svg class="i" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></svg>',
+  heart: '<svg class="i" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z"/></svg>',
+  send: '<svg class="i" viewBox="0 0 24 24"><path d="M4 12 20 4l-4 16-4-7z"/><path d="m12 13 8-9"/></svg>',
   key: '<svg class="i" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 12 8.5-8.5M16 7l2.5 2.5M14 9l2 2"/></svg>',
 };
 
@@ -86,6 +88,9 @@ const remote = {
   issuePhotoDelete(t, id) { return this.rpc("ag_issue_photo_delete", { p_token: t, p_id: id }); },
   issueDone(t, id, flag, note) { return this.rpc("ag_issue_done", { p_token: t, p_id: id, p_done: flag, p_note: note || "" }); },
   issueDelete(t, id) { return this.rpc("ag_issue_delete", { p_token: t, p_id: id }); },
+  commentAdd(t, issue, body) { return this.rpc("ag_issue_comment_add", { p_token: t, p_issue: issue, p_body: body }); },
+  commentDelete(t, id) { return this.rpc("ag_issue_comment_delete", { p_token: t, p_id: id }); },
+  heart(t, issue, on) { return this.rpc("ag_issue_heart", { p_token: t, p_issue: issue, p_on: on }); },
 };
 
 // ── 백엔드: 체험 모드 (이 기기 localStorage, SQL 과 같은 규칙) ──
@@ -118,6 +123,8 @@ const demo = {
     if (!d.members.some(m => m.role === "admin")) d.members.unshift({ id: "ma", name: "관리자", role: "admin", pin: "9999", sort: -1, active: true });
     if (!d.issues) d.issues = [];
     if (!d.photos) d.photos = [];
+    if (!d.comments) d.comments = [];
+    if (!d.hearts) d.hearts = [];
     return d;
   },
   put(d) { save(DEMO_KEY, d); },
@@ -215,7 +222,9 @@ const demo = {
     const items = d.issues.filter(x => (x.day >= from && x.day <= to) || (cur && x.day < from && !x.done_at))
       .sort((a, b) => b.day.localeCompare(a.day) || b.created_at.localeCompare(a.created_at))
       .map(x => ({ ...x, carry: x.day < from, created_name: nm(x.created_by), done_name: nm(x.done_by),
-        photos: d.photos.filter(p => p.issue_id === x.id).map(p => ({ id: p.id, kind: p.kind, thumb: p.thumb, by: p.created_by })) }));
+        photos: d.photos.filter(p => p.issue_id === x.id).map(p => ({ id: p.id, kind: p.kind, thumb: p.thumb, by: p.created_by })),
+        comments: d.comments.filter(c => c.issue_id === x.id).map(c => ({ id: c.id, body: c.body, by: c.created_by, name: nm(c.created_by), at: c.created_at })),
+        hearts: d.hearts.filter(h => h.issue_id === x.id).map(h => ({ by: h.member_id, name: nm(h.member_id) })) }));
     const places = [...new Set([...d.issues].sort((a, b) => b.created_at.localeCompare(a.created_at)).map(x => x.place).filter(Boolean))].slice(0, 12);
     return { from, to, open_all: d.issues.filter(x => !x.done_at).length, places, items };
   },
@@ -250,7 +259,22 @@ const demo = {
     }
     this.put(d);
   },
-  async issueDelete(t, id) { const m = this.me(t), d = this.db(); if (m.role === "crew" && d.issues.find(i => i.id === id)?.created_by !== m.id) throw new Error("FORBIDDEN"); d.issues = d.issues.filter(x => x.id !== id); d.photos = d.photos.filter(p => p.issue_id !== id); this.put(d); },
+  async issueDelete(t, id) { const m = this.me(t), d = this.db(); if (m.role === "crew" && d.issues.find(i => i.id === id)?.created_by !== m.id) throw new Error("FORBIDDEN"); d.issues = d.issues.filter(x => x.id !== id); d.photos = d.photos.filter(p => p.issue_id !== id); d.comments = d.comments.filter(c => c.issue_id !== id); d.hearts = d.hearts.filter(h => h.issue_id !== id); this.put(d); },
+  async commentAdd(t, issue, body) {
+    const m = this.me(t), d = this.db(), x = d.issues.find(i => i.id === issue); body = String(body || "").trim().slice(0, 500);
+    if (!body) throw new Error("댓글 내용을 적어 주세요"); if (!x) throw new Error("이슈를 찾지 못했어요"); if (!x.done_at) throw new Error("조치 완료한 이슈에만 댓글을 남길 수 있어요");
+    const id = "c" + Date.now(); d.comments.push({ id, issue_id: issue, body, created_by: m.id, created_at: new Date().toISOString() }); this.put(d); return id;
+  },
+  async commentDelete(t, id) {
+    const m = this.me(t), d = this.db(), c = d.comments.find(x => x.id === id);
+    if (c && m.role === "crew" && c.created_by !== m.id) throw new Error("FORBIDDEN");
+    d.comments = d.comments.filter(x => x.id !== id); this.put(d);
+  },
+  async heart(t, issue, on) {
+    const m = this.me(t), d = this.db(); d.hearts = d.hearts.filter(h => !(h.issue_id === issue && h.member_id === m.id));
+    if (on) { if (!d.issues.find(i => i.id === issue)?.done_at) throw new Error("조치 완료한 이슈에만 하트를 누를 수 있어요"); d.hearts.push({ issue_id: issue, member_id: m.id }); }
+    this.put(d);
+  },
 };
 
 // ── 상태 ──
@@ -514,11 +538,24 @@ function issueCard(x, i) {
       ${x.memo ? `<p class="issue__memo">${esc(x.memo)}</p>` : ""}
       ${thumbs(before, x.done_at ? "조치 전" : "현장 사진")}
       ${x.done_at ? `<div class="issue__done"><p class="issue__by">${I.ok}<span><b>${esc(x.done_name || "알 수 없음")}</b> · ${fmtWhen(x.done_at)} 조치</span></p>${x.done_note ? `<p class="issue__memo">${esc(x.done_note)}</p>` : ""}${thumbs(after, "조치 후")}</div>` : ""}
+      ${x.done_at && x.comments ? issueTalk(x) : ""}
       <div class="issue__acts">
         ${x.done_at ? (canUndo ? `<button class="btn btn--sm" data-act="issue-done" data-id="${esc(x.id)}">조치 내용 수정</button><button class="btn btn--sm" data-act="issue-undo" data-id="${esc(x.id)}">진행 중으로</button>` : "")
                     : `<button class="btn btn--main" data-act="issue-done" data-id="${esc(x.id)}">${I.check} 조치 완료</button>`}
         ${canEdit ? `<button class="btn btn--sm" data-act="edit-issue" data-id="${esc(x.id)}">${x.done_at ? "이슈 수정" : "수정"}</button><button class="btn btn--sm btn--danger" data-act="ask-del" data-k="issue" data-id="${esc(x.id)}">삭제</button>` : ""}
       </div></article>`;
+}
+// 조치 완료한 이슈 아래: 하트 + 댓글
+function issueTalk(x) {
+  const me = S.board.me, hearts = x.hearts || [], mine = hearts.some(h => h.by === me.id);
+  const who = hearts.length ? hearts.map(h => h.name || "알 수 없음").join(", ") : "수고했어요, 하트를 눌러 주세요";
+  const list = x.comments.map(c => `<li class="cmt"><div class="cmt__h"><b>${esc(c.name || "알 수 없음")}</b><small>${fmtWhen(c.at)}</small>
+      ${isMgr() || c.by === me.id ? `<button class="cmt__x" data-act="cmt-del" data-id="${esc(c.id)}" aria-label="댓글 지우기">${I.x}</button>` : ""}</div><p>${esc(c.body)}</p></li>`).join("");
+  return `<div class="talk">
+      <div class="talk__heart"><button class="heart" data-act="heart" data-id="${esc(x.id)}" aria-pressed="${mine}" aria-label="하트 ${mine ? "빼기" : "누르기"}">${I.heart}<span class="num">${hearts.length}</span></button><small>${esc(who)}</small></div>
+      ${list ? `<ul class="cmts">${list}</ul>` : ""}
+      <form class="cmt-in" data-issue="${esc(x.id)}"><input type="text" maxlength="500" placeholder="댓글 남기기" aria-label="댓글" enterkeyhint="send"><button class="btn btn--sm" aria-label="댓글 올리기">${I.send}</button></form>
+    </div>`;
 }
 // 현장 이슈 · 주간 보기 (월~일). 이번 주에는 지난주부터 남은 진행 중 이슈도 같이 보여요.
 function viewIssues() {
@@ -836,6 +873,17 @@ async function act(a, el) {
         await S.api.issueDone(S.sess.token, s.id, true, s.note.trim());
         S.sheet = null; await refresh(); navigator.vibrate?.(40); toast(edit ? "조치 내용을 고쳤어요" : "조치 완료했어요. 수고했어요"); break;
       }
+      case "heart": {
+        const x = S.issues.items.find(i => i.id === el.dataset.id), on = !x.hearts.some(h => h.by === S.board.me.id);
+        x.hearts = on ? [...x.hearts, { by: S.board.me.id, name: S.board.me.name }] : x.hearts.filter(h => h.by !== S.board.me.id); render();
+        if (on) navigator.vibrate?.(20);
+        try { await S.api.heart(S.sess.token, x.id, on); } finally { await loadIssues(); if (!S.sheet) render(); }
+        break;
+      }
+      case "cmt-del": {
+        if (!confirm("댓글을 지울까요?")) return;
+        el.disabled = true; await S.api.commentDelete(S.sess.token, el.dataset.id); await loadIssues(); if (!S.sheet) render(); toast("댓글을 지웠어요"); break;
+      }
       case "issue-undo": {
         if (!confirm("진행 중으로 되돌릴까요? 조치 후 사진도 같이 지워져요.")) return;
         el.disabled = true; await S.api.issueDone(S.sess.token, el.dataset.id, false, ""); await refresh(); toast("진행 중으로 되돌렸어요"); break;
@@ -888,6 +936,19 @@ document.addEventListener("change", async e => {
   if (e.target.dataset?.act === "iweekset" && e.target.value) { S.issueWeek = monday(e.target.value); loadIssues().then(() => !S.sheet && render()).catch(err => toast(errMsg(err))); return; }
   if (e.target.dataset?.act === "dayset" && e.target.value) { S.day = e.target.value; refresh().catch(err => toast(errMsg(err))); }
 });
+// 댓글: 엔터나 보내기 버튼
+document.addEventListener("submit", async e => {
+  const f = e.target.closest(".cmt-in"); if (!f) return;
+  e.preventDefault();
+  const inp = f.querySelector("input"), btn = f.querySelector("button"), body = inp.value.trim();
+  if (!body || btn.disabled) return;
+  btn.disabled = inp.disabled = true;
+  try { await S.api.commentAdd(S.sess.token, f.dataset.issue, body); await loadIssues(); if (!S.sheet) render(); }
+  catch (err) {
+    if (err.code === "28000" || /AUTH/.test(err.message)) { logoutLocal(); await showLogin(); toast("다시 로그인해 주세요"); return; }
+    toast(errMsg(err)); btn.disabled = inp.disabled = false;
+  }
+});
 document.addEventListener("keydown", e => {
   if (S.sheet && e.key === "Escape") { S.sheet = null; render(); return; }
   if (!S.sess && S.pick && !S.sheet) {
@@ -897,7 +958,8 @@ document.addEventListener("keydown", e => {
   }
 });
 // 30초마다, 그리고 화면으로 돌아올 때 새로고침 (시트 열려 있으면 건너뜀)
-const tick = () => { if (S.sess && S.board && !S.sheet && document.visibilityState === "visible") refresh().catch(() => {}); };
+const typing = () => !!document.activeElement?.closest?.(".cmt-in") && !!document.activeElement.value;
+const tick = () => { if (S.sess && S.board && !S.sheet && !typing() && document.visibilityState === "visible") refresh().catch(() => {}); };
 setInterval(tick, 30000);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState !== "visible" || !S.sess) return;

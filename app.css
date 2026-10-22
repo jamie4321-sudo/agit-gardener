@@ -266,6 +266,24 @@ svg.i{width:1.25em;height:1.25em;flex:none;stroke:currentColor;fill:none;stroke-
 .issue__by b{color:var(--ink)}
 .issue__acts{display:flex;flex-wrap:wrap;gap:.5rem}
 .issue__acts .btn--main{flex:1;min-height:3.5rem}
+.talk{display:flex;flex-direction:column;gap:.7rem;border-top:1px solid var(--line-soft);padding-top:.85rem}
+.talk__heart{display:flex;align-items:center;gap:.65rem;min-width:0}
+.talk__heart small{font-size:.85rem;font-weight:700;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.heart{display:inline-flex;align-items:center;gap:.4rem;min-height:2.75rem;padding:0 .95rem;border-radius:999px;border:2px solid var(--line);background:var(--panel);font-weight:800;color:var(--ink-2);flex:none;transition:transform .12s ease,border-color .15s ease,color .15s ease}
+.heart:active{transform:scale(.94)}
+.heart[aria-pressed="true"]{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 40%,var(--line))}
+.heart[aria-pressed="true"] svg{fill:currentColor;animation:pop .32s var(--ease-out)}
+@keyframes pop{0%{transform:scale(.6)}60%{transform:scale(1.2)}100%{transform:scale(1)}}
+.cmts{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.5rem}
+.cmt{background:var(--panel-2);border-radius:var(--r);padding:.6rem .85rem}
+.cmt__h{display:flex;align-items:center;gap:.5rem}
+.cmt__h b{font-size:.95rem;font-weight:800}
+.cmt__h small{font-size:.8rem;font-weight:700;color:var(--ink-3)}
+.cmt__x{margin-left:auto;display:grid;place-items:center;width:2rem;height:2rem;border:0;background:none;border-radius:var(--r-sm);color:var(--ink-3)}
+.cmt p{margin:.15rem 0 0;font-size:1rem;font-weight:600;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+.cmt-in{display:flex;gap:.5rem}
+.cmt-in input{flex:1;min-width:0;min-height:2.75rem;border-radius:var(--r-sm);border:2px solid var(--line);background:var(--panel-2);padding:0 .85rem;font-size:1rem}
+.cmt-in .btn{padding:0 .85rem}
 .shots{display:flex;flex-direction:column;gap:.45rem}
 .shots h4{margin:0;font-size:.85rem;font-weight:800;color:var(--ink-3)}
 .shots__g{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.45rem}
