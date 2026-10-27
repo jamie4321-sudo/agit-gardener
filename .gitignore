@@ -2,3 +2,4 @@ node_modules/
 .DS_Store
 src/
 _preview/
+supabase/v8_keys.sql

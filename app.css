@@ -484,3 +484,23 @@ body.is-edu .main{visibility:hidden}
 @media (max-width:860px){
   #edu-frame{left:0;width:100%;bottom:var(--tabbar-h,0px);height:calc(100% - var(--tabbar-h,0px))}
 }
+
+/* 휴대폰 알림 */
+.tool.is-on{border-color:color-mix(in srgb,var(--ok) 45%,var(--line));color:var(--ok)}
+.tool.is-on svg{fill:color-mix(in srgb,var(--ok) 18%,transparent)}
+.pushcard{background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--r-lg);padding:.9rem 1rem;display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;animation:rise .42s var(--ease-out) backwards}
+.pushcard>div:not(.pushcard__a){flex:1 1 12rem;display:flex;flex-direction:column;gap:.15rem;min-width:0}
+.pushcard b{font-size:1.02rem;font-weight:800}
+.pushcard small{font-size:.85rem;font-weight:600;color:var(--ink-2)}
+.pushcard__ic{flex:none;width:2.6rem;height:2.6rem;border-radius:50%;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent-text);font-style:normal}
+.pushcard__a{display:flex;gap:.4rem;flex:none;margin-left:auto}
+.pushsheet .lead{margin:0;font-size:1.05rem;line-height:1.55}
+.pushwhat{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.4rem}
+.pushwhat li{display:flex;align-items:center;gap:.7rem;background:var(--panel-2);border-radius:var(--r);padding:.65rem .8rem;font-size:.95rem;color:var(--ink-2)}
+.pushwhat li svg{flex:none;color:var(--ink-2)}
+.pushwhat b{color:var(--ink);font-weight:800;margin-right:.35rem}
+.steps{margin:0;padding:0;list-style:none;counter-reset:st;display:flex;flex-direction:column;gap:.45rem}
+.steps li{counter-increment:st;display:flex;align-items:center;gap:.7rem;background:var(--panel-2);border-radius:var(--r);padding:.7rem .8rem;font-size:1rem;line-height:1.45}
+.steps li::before{content:counter(st);flex:none;width:1.75rem;height:1.75rem;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-size:.85rem;font-weight:800}
+.steps li svg{width:1.1rem;height:1.1rem;vertical-align:-.2rem;display:inline}
+@media (max-width:860px){.pushcard__a{width:100%}.pushcard__a .btn{flex:1}}

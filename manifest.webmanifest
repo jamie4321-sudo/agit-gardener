@@ -1,0 +1,17 @@
+{
+  "name": "아지트 가드너",
+  "short_name": "아지트 가드너",
+  "description": "링키지랩 가든관리 · 판교 아지트 현장 이슈",
+  "lang": "ko",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f5f1",
+  "theme_color": "#f4f5f1",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

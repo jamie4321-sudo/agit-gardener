@@ -52,6 +52,8 @@ const I = {
   cmp: '<svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M12 3v18"/></svg>',
   book: '<svg class="i" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/><path d="M9 8h7"/></svg>',
   key: '<svg class="i" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 12 8.5-8.5M16 7l2.5 2.5M14 9l2 2"/></svg>',
+  bell: '<svg class="i" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/></svg>',
+  share: '<svg class="i" viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M6 11H5v10h14V11h-1"/></svg>',
 };
 
 // ── 백엔드: Supabase RPC ──
@@ -95,6 +97,10 @@ const remote = {
   react(t, issue, kind, on) { return this.rpc("ag_issue_react", { p_token: t, p_issue: issue, p_kind: kind, p_on: on }); },
   news(t) { return this.rpc("ag_issue_news", { p_token: t }); },
   newsSeen(t) { return this.rpc("ag_issue_news_seen", { p_token: t }); },
+  pushKey() { return this.rpc("ag_push_key"); },
+  pushSub(t, s) { return this.rpc("ag_push_subscribe", { p_token: t, p_endpoint: s.endpoint, p_p256dh: s.keys.p256dh, p_auth: s.keys.auth, p_ua: navigator.userAgent }); },
+  pushUnsub(t, endpoint) { return this.rpc("ag_push_unsubscribe", { p_token: t, p_endpoint: endpoint }); },
+  pushTest(t) { return this.rpc("ag_push_test", { p_token: t }); },
 };
 
 // ── 백엔드: 체험 모드 (이 기기 localStorage, SQL 과 같은 규칙) ──
@@ -340,11 +346,72 @@ const zoneOrder = code => { const i = S.board?.zones.findIndex(z => z.code === c
 const sortZones = zs => [...zs].sort((a, b) => zoneOrder(a) - zoneOrder(b));
 const ownersOf = code => (S.board?.members || []).filter(m => assignOf(m.id)?.zones.includes(code));
 
+// ── 휴대폰 알림 (Web Push) ──
+// 안드로이드: 크롬에서 바로 · 아이폰: 사파리 '홈 화면에 추가' 후 그 아이콘으로 열어야 해요 (iOS 16.4+)
+const UA = navigator.userAgent;
+const IS_IOS = /iPhone|iPad|iPod/.test(UA) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const IS_STANDALONE = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const IN_APP = /KAKAOTALK|NAVER\(|Instagram|FBAN|FBAV|Line\//i.test(UA);
+const CAN_PUSH = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+const swReady = CAN_PUSH ? navigator.serviceWorker.register(new URL("sw.js", document.currentScript?.src || location.href)).then(() => navigator.serviceWorker.ready).catch(() => null) : Promise.resolve(null);
+const b64key = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), c => c.charCodeAt(0));
+// 상태: on · off · denied · ios-install · inapp · unsupported · demo · server(v8.sql 전)
+async function pushCheck() {
+  const was = S.push;
+  S.push = S.mode === "demo" ? "demo" : IN_APP ? "inapp" : IS_IOS && !IS_STANDALONE ? "ios-install" : !CAN_PUSH ? "unsupported"
+    : Notification.permission === "denied" ? "denied" : "off";
+  if (S.push === "off" && Notification.permission === "granted" && S.sess) {
+    const sub = await (await swReady)?.pushManager.getSubscription().catch(() => null);
+    if (sub) {   // 이 기기가 이미 구독 중이면 지금 로그인한 사람으로 다시 이어 줘요
+      try { await remote.pushSub(S.sess.token, sub.toJSON()); S.push = "on"; }
+      catch (e) { if (missingFn(e)) S.push = "server"; }
+    }
+  }
+  if (was !== S.push && S.board) render();
+}
+async function pushOn() {
+  if (Notification.permission !== "granted" && await Notification.requestPermission() !== "granted") {
+    S.push = Notification.permission === "denied" ? "denied" : "off"; return false;
+  }
+  const reg = await swReady; if (!reg) throw new Error("알림을 준비하지 못했어요. 새로고침 후 다시 해 주세요.");
+  let key;
+  try { key = await remote.pushKey(); } catch (e) { if (missingFn(e)) { S.push = "server"; return false; } throw e; }
+  if (!key) { S.push = "server"; return false; }
+  let sub = await reg.pushManager.getSubscription();
+  const same = sub?.options?.applicationServerKey && btoa(String.fromCharCode(...new Uint8Array(sub.options.applicationServerKey))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "") === key;
+  if (sub && !same) { await sub.unsubscribe().catch(() => {}); sub = null; }
+  sub = sub || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64key(key) });
+  await remote.pushSub(S.sess.token, sub.toJSON());
+  S.push = "on"; return true;
+}
+async function pushOff(keepDevice) {
+  const sub = await (await swReady)?.pushManager.getSubscription().catch(() => null);
+  if (sub && S.sess && S.mode !== "demo") await remote.pushUnsub(S.sess.token, sub.endpoint).catch(() => {});
+  if (sub && !keepDevice) await sub.unsubscribe().catch(() => {});
+  if (S.push === "on") S.push = "off";
+}
+// 알림을 눌러 들어오면 (?issue=…&day=…) 그 이슈로 가요
+async function openFromUrl(href) {
+  const q = new URL(href, location.href).searchParams, id = q.get("issue"), day = q.get("day");
+  if (location.search) history.replaceState(null, "", location.pathname);
+  if (!id || !S.board) return;
+  if (S.sheet) S.sheet = null;
+  S.view = "issues"; S.issueTab = "all"; S.flash = id; if (day) S.issueWeek = monday(day);
+  render(); await loadIssues(); render();
+  document.getElementById("is-" + id)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  setTimeout(() => { if (S.flash === id) S.flash = null; }, 2500);
+}
+navigator.serviceWorker?.addEventListener("message", e => { if (e.data?.type === "open") openFromUrl(e.data.url).catch(() => {}); });
+
 // ── 시작 ──
 async function boot() {
   if (S.sess) {
     S.api = S.sess.mode === "demo" ? demo : remote; S.mode = S.sess.mode || "remote";
-    try { await loadBoard(); S.view = S.view || firstView(S.board.me); render(); bgIssues(); return; }
+    try {
+      await loadBoard(); S.view = S.view || firstView(S.board.me); render(); bgIssues(); pushCheck();
+      if (location.search.includes("issue=")) openFromUrl(location.href).catch(() => {});
+      return;
+    }
     catch (e) { if (e.code !== "28000" && !/AUTH/.test(e.message)) { renderFatal(errMsg(e)); return; } logoutLocal(); }
   }
   await showLogin();
@@ -400,7 +467,8 @@ async function pressKey(k) {
       S.pick = null; S.pin = ""; S.day = today();
       await loadBoard();
       S.view = firstView(r.me); S.issues = null;
-      render(); bgIssues(); toast(`${r.me.name}님, 안녕하세요`);
+      render(); bgIssues(); pushCheck(); toast(`${r.me.name}님, 안녕하세요`);
+      if (location.search.includes("issue=")) openFromUrl(location.href).catch(() => {});
     } else {
       S.pin = "";
       S.pinMsg = r.err === "locked" ? `여러 번 틀렸어요. ${Math.ceil((r.wait || 300) / 60)}분 뒤에 다시 해요.` : r.err === "pin" ? "비밀번호가 달라요. 다시 눌러요." : "이름을 다시 골라 주세요.";
@@ -440,6 +508,7 @@ function render() {
       <div class="topbar${S.mode === "demo" ? " is-demo" : ""}">
         <div class="m-head"><span class="mark">${I.leaf}</span><b>아지트 가드너</b></div>
         ${banner}<span class="sp"></span>
+        <button class="tool${S.push === "on" ? " is-on" : ""}" data-act="push-open" aria-label="휴대폰 알림 ${S.push === "on" ? "켜짐" : "설정"}">${I.bell}<span>${S.push === "on" ? "알림 켜짐" : "알림"}</span></button>
         <button class="tool" data-act="big" aria-pressed="${!!pref.big}">${I.big}<span>글자 크게</span></button>
         <button class="tool" data-act="theme" aria-label="화면 밝기 바꾸기">${I.moon}</button>
         <button class="tool m-only" data-act="logout" aria-label="나가기">${I.out}</button>
@@ -622,7 +691,14 @@ function viewIssues() {
     return `<section class="dayg"><h2 class="dayh">${dayWord(day) === "오늘" || dayWord(day) === "어제" ? dayWord(day) + " · " : ""}${fmtDay(day)} <span class="num">${list.length}</span></h2><div class="issues">${list.map(x => issueCard(x, i++)).join("")}</div></section>`;
   }).join("");
   if (!body) body = `<div class="empty"><b>${tab === "open" ? "진행 중인 이슈가 없어요" : tab === "done" ? "조치 완료한 이슈가 없어요" : cur ? "이번 주 이슈가 아직 없어요" : "이 주에는 이슈가 없었어요"}</b><p>${cur ? "현장에서 사진을 찍어 올려 보세요." : "주를 바꿔서 볼 수 있어요."}</p></div>`;
-  return `${head}${newsCard()}${bar}${sum}${add}${seg}${body}`;
+  return `${head}${pushCard()}${newsCard()}${bar}${sum}${add}${seg}${body}`;
+}
+// 알림 켜기 안내 (켤 수 있는 상태일 때만, '나중에'를 누르면 숨겨요)
+function pushCard() {
+  if (pref.pushHide || !["off", "ios-install", "inapp"].includes(S.push)) return "";
+  const t = S.push === "off" ? "휴대폰 알림을 켜 보세요" : S.push === "ios-install" ? "아이폰은 홈 화면에 추가하면 알림이 와요" : "카카오톡 안에서는 알림이 안 와요";
+  return `<section class="pushcard" aria-label="알림 안내"><i class="pushcard__ic">${I.bell}</i><div><b>${t}</b><small>새 이슈 · 조치 완료 · 댓글을 바로 알려 드려요</small></div>
+    <div class="pushcard__a"><button class="btn btn--sm btn--main" data-act="push-open">${S.push === "off" ? "알림 켜기" : "방법 보기"}</button><button class="btn btn--sm btn--ghost" data-act="push-hide">나중에</button></div></section>`;
 }
 // 새 소식: 내가 올리거나 조치한 이슈에 다른 사람이 남긴 칭찬·댓글
 function newsCard() {
@@ -773,6 +849,30 @@ function renderSheet() {
       </div>
       <div class="sheet__f"><button class="btn btn--ghost" data-act="close">취소</button><button class="btn btn--main" data-act="save-done" ${s.busyPhoto ? "disabled" : ""}>${edit ? "저장하기" : `${I.check} 조치 완료`}</button></div></section>`;
   }
+  if (s.type === "push") {
+    const st = S.push, steps = a => `<ol class="steps">${a.map(x => `<li><span>${x}</span></li>`).join("")}</ol>`;
+    const what = `<ul class="pushwhat"><li>${I.issue}<span><b>새 현장 이슈</b> 누군가 이슈를 올리면</span></li><li>${I.ok}<span><b>조치 완료</b> 내가 올린 이슈를 조치하면</span></li><li>${I.msg}<span><b>댓글 · 칭찬</b> 내 이슈에 댓글·스티커가 달리면</span></li></ul>`;
+    const body = {
+      on: `<div class="alert ok">${I.ok}<div><b>이 휴대폰으로 알림을 받고 있어요</b></div></div>${what}`,
+      off: `<p class="lead">알림을 켜면 앱을 닫아 둬도 휴대폰으로 알려 드려요.</p>${what}<p class="hint">'알림 켜기'를 누르면 휴대폰이 "알림을 허용할까요?" 하고 물어요. <b>허용</b>을 눌러 주세요.</p>`,
+      "ios-install": `<p class="lead">아이폰은 <b>홈 화면에 추가</b>한 앱에서만 알림을 받을 수 있어요. (iOS 16.4 이상)</p>
+        ${steps([`<b>사파리</b>로 이 화면을 열어요`, `아래쪽 <b>공유</b> 버튼 ${I.share} 을 눌러요`, `<b>홈 화면에 추가</b>를 누르고 '추가'`, `홈 화면의 <b>아지트 가드너</b> 아이콘으로 열어요`, `로그인한 뒤 위쪽 ${I.bell} <b>알림</b> → <b>알림 켜기</b>`])}`,
+      inapp: `<p class="lead">카카오톡 같은 앱 안에서 연 화면은 알림을 받을 수 없어요. 휴대폰 기본 브라우저로 열어 주세요.</p>
+        ${steps(IS_IOS ? [`오른쪽 아래 <b>공유</b> 버튼 → <b>Safari로 열기</b>`, `사파리에서 <b>공유 → 홈 화면에 추가</b>`, `홈 화면 아이콘으로 열고 <b>알림 켜기</b>`] : [`오른쪽 위 <b>⋮</b> → <b>다른 브라우저로 열기</b> (크롬)`, `크롬에서 로그인하고 <b>알림 켜기</b>`])}
+        <button class="btn btn--ghost" data-act="push-copy">주소 복사하기</button>`,
+      denied: `<p class="lead">이 휴대폰에서 알림이 <b>막혀</b> 있어요. 설정에서 풀어 주세요.</p>
+        ${steps(IS_IOS ? [`아이폰 <b>설정</b> → <b>알림</b>`, `<b>아지트 가드너</b> → <b>알림 허용</b> 켜기`, `앱으로 돌아와 다시 <b>알림 켜기</b>`] : [`주소창 왼쪽 <b>자물쇠(또는 ⓘ)</b> 를 눌러요`, `<b>권한 → 알림</b> → <b>허용</b>`, `화면을 새로고침하고 다시 <b>알림 켜기</b>`])}`,
+      unsupported: `<p class="lead">이 브라우저는 알림을 지원하지 않아요. 안드로이드는 <b>크롬</b>, 아이폰은 <b>사파리</b>로 열어 주세요.</p>`,
+      demo: `<p class="lead">체험 모드에서는 알림을 쓸 수 없어요.</p>`,
+      server: `<p class="lead">서버 준비가 아직 안 됐어요. 관리자에게 알려 주세요. (v8.sql)</p>`,
+    }[st] || `<p class="lead">확인하는 중…</p>`;
+    const foot = st === "on" ? `<button class="btn btn--ghost" data-act="push-off">알림 끄기</button><button class="btn btn--main" data-act="push-test">${I.bell} 시험 알림</button>`
+      : st === "off" ? `<button class="btn btn--ghost" data-act="close">닫기</button><button class="btn btn--main" data-act="push-on" autofocus>${I.bell} 알림 켜기</button>`
+      : `<button class="btn btn--main" data-act="close" autofocus>알겠어요</button>`;
+    return `<div class="scrim" data-act="close"></div><section class="sheet sheet--sm" role="dialog" aria-modal="true" aria-label="휴대폰 알림">
+      <div class="sheet__h"><span class="zcode">${I.bell}</span><div><h2>휴대폰 알림</h2><p>${IS_IOS ? "아이폰" : /Android/.test(UA) ? "안드로이드" : "이 기기"}</p></div><button class="x" data-act="close" aria-label="닫기">${I.x}</button></div>
+      <div class="sheet__b pushsheet">${body}</div><div class="sheet__f">${foot}</div></section>`;
+  }
   if (s.type === "photo") {
     return `<div class="scrim scrim--dark" data-act="close"></div><section class="viewer" role="dialog" aria-modal="true" aria-label="사진 크게 보기">
       <button class="x" data-act="close" aria-label="닫기" autofocus>${I.x}</button>
@@ -821,8 +921,24 @@ async function act(a, el) {
       case "del": S.pin = S.pin.slice(0, -1); S.pinMsg = ""; renderLogin(); break;
       case "logout":
         if (!confirm("로그아웃 할까요?")) return;
-        S.api.logout(S.sess.token); logoutLocal(); await showLogin(); break;
+        await pushOff(true); S.api.logout(S.sess.token); logoutLocal(); await showLogin(); break;
       case "go": if (locked(el.dataset.v)) { toast("배정은 준비 중이에요"); break; } S.view = el.dataset.v; render(); window.scrollTo({ top: 0 }); if (S.view === "issues") { await loadIssues(); if (!S.sheet) render(); } break;
+      case "push-open": S.sheet = { type: "push" }; render(); pushCheck(); break;
+      case "push-hide": pref.pushHide = true; save(PREF_KEY, pref); render(); toast("위쪽 종 버튼에서 언제든 켤 수 있어요"); break;
+      case "push-on": {
+        el.disabled = true;
+        const ok = await pushOn(); render();
+        toast(ok ? "알림을 켰어요" : S.push === "denied" ? "알림이 막혀 있어요. 방법을 확인해 주세요" : S.push === "server" ? "서버 준비가 아직 안 됐어요" : "알림을 켜지 않았어요");
+        if (ok) remote.pushTest(S.sess.token).catch(() => {});
+        break;
+      }
+      case "push-off": el.disabled = true; await pushOff(false); render(); toast("알림을 껐어요"); break;
+      case "push-test": el.disabled = true; await remote.pushTest(S.sess.token); toast("시험 알림을 보냈어요. 잠시 뒤 휴대폰을 확인해 주세요"); el.disabled = false; break;
+      case "push-copy": {
+        const u = location.origin + location.pathname;
+        try { await navigator.clipboard.writeText(u); toast("주소를 복사했어요"); } catch { prompt("이 주소를 복사해 주세요", u); }
+        break;
+      }
       case "big": pref.big = !pref.big; save(PREF_KEY, pref); applyPref(); render(); break;
       case "theme": {
         const dark = pref.theme ? pref.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
