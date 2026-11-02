@@ -272,7 +272,7 @@ const demo = {
   async issueDelete(t, id) { const m = this.me(t), d = this.db(); if (m.role === "crew" && d.issues.find(i => i.id === id)?.created_by !== m.id) throw new Error("FORBIDDEN"); d.issues = d.issues.filter(x => x.id !== id); d.photos = d.photos.filter(p => p.issue_id !== id); d.comments = d.comments.filter(c => c.issue_id !== id); d.hearts = d.hearts.filter(h => h.issue_id !== id); this.put(d); },
   async commentAdd(t, issue, body) {
     const m = this.me(t), d = this.db(), x = d.issues.find(i => i.id === issue); body = String(body || "").trim().slice(0, 500);
-    if (!body) throw new Error("댓글 내용을 적어 주세요"); if (!x) throw new Error("이슈를 찾지 못했어요"); if (!x.done_at) throw new Error("조치 완료한 이슈에만 댓글을 남길 수 있어요");
+    if (!body) throw new Error("댓글 내용을 적어 주세요"); if (!x) throw new Error("이슈를 찾지 못했어요");
     const id = "c" + Date.now(); d.comments.push({ id, issue_id: issue, body, created_by: m.id, created_at: new Date().toISOString() }); this.put(d); return id;
   },
   async commentDelete(t, id) {
@@ -639,7 +639,10 @@ function issueCard(x, i) {
       ${x.memo ? `<p class="issue__memo">${esc(x.memo)}</p>` : ""}
       ${thumbs(before, x.done_at ? "조치 전" : "현장 사진")}
       ${x.done_at ? `<div class="issue__done"><p class="issue__by">${I.ok}<span><b>${esc(x.done_name || "알 수 없음")}</b> · ${fmtWhen(x.done_at)} 조치</span></p>${x.done_note ? `<p class="issue__memo">${esc(x.done_note)}</p>` : ""}${thumbs(after, "조치 후")}${before.length && after.length ? `<button class="btn btn--sm cmp-btn" data-act="compare" data-id="${esc(x.id)}">${I.cmp} 조치 전·후 비교</button>` : ""}</div>` : ""}
-      ${x.done_at && x.comments ? issueTalk(x) : ""}
+      ${!x.comments ? "" : x.done_at ? issueTalk(x, true) : (() => {
+        const open = S.talkOpen?.has(x.id) || S.flash === x.id, n = x.comments.length;
+        return `<button class="talk-btn" data-act="talk" data-id="${esc(x.id)}" aria-expanded="${open}">${I.msg}<span>댓글${n ? ` <b class="num">${n}</b>` : " 남기기"}</span>${open ? I.up : I.down}</button>${open ? issueTalk(x, false) : ""}`;
+      })()}
       <div class="issue__acts">
         ${x.done_at ? (canUndo ? `<button class="btn btn--sm" data-act="issue-done" data-id="${esc(x.id)}">조치 내용 수정</button><button class="btn btn--sm" data-act="issue-undo" data-id="${esc(x.id)}">진행 중으로</button>` : "")
                     : `<button class="btn btn--main" data-act="issue-done" data-id="${esc(x.id)}">${I.check} 조치 완료</button>`}
@@ -649,7 +652,7 @@ function issueCard(x, i) {
 // 조치 완료한 이슈 아래: 하트 + 댓글
 const CHEERS = [["heart", "", "하트"], ["thanks", "🌱", "고마워요"], ["best", "👏", "최고예요"], ["clean", "✨", "깔끔해요"]];
 const cheerName = k => CHEERS.find(c => c[0] === k)?.[2] || "하트";
-function issueTalk(x) {
+function issueTalk(x, cheers) {
   const me = S.board.me, hearts = (x.hearts || []).map(h => ({ ...h, kind: h.kind || "heart" }));
   const names = [...new Set(hearts.map(h => h.name || "알 수 없음"))];
   const who = names.length ? `${names.join(", ")}님이 칭찬했어요` : "수고했어요, 칭찬을 남겨 주세요";
@@ -660,7 +663,7 @@ function issueTalk(x) {
   const list = x.comments.map(c => `<li class="cmt"><div class="cmt__h"><b>${esc(c.name || "알 수 없음")}</b><small>${fmtWhen(c.at)}</small>
       ${isMgr() || c.by === me.id ? `<button class="cmt__x" data-act="cmt-del" data-id="${esc(c.id)}" aria-label="댓글 지우기">${I.x}</button>` : ""}</div><p>${esc(c.body)}</p></li>`).join("");
   return `<div class="talk">
-      <div class="cheers">${chips}</div><small class="cheers__who">${esc(who)}</small>
+      ${cheers ? `<div class="cheers">${chips}</div><small class="cheers__who">${esc(who)}</small>` : ""}
       ${list ? `<ul class="cmts">${list}</ul>` : ""}
       <form class="cmt-in" data-issue="${esc(x.id)}"><input type="text" maxlength="500" placeholder="댓글 남기기" aria-label="댓글" enterkeyhint="send"><button class="btn btn--sm" aria-label="댓글 올리기">${I.send}</button></form>
     </div>`;
@@ -1054,6 +1057,12 @@ async function act(a, el) {
         x.hearts = on ? [...x.hearts, { by: me.id, kind: k, name: me.name }] : x.hearts.filter(h => !mineK(h)); render();
         if (on) navigator.vibrate?.(20);
         try { await S.api.react(S.sess.token, x.id, k, on); } finally { await loadIssues(); if (!S.sheet) render(); }
+        break;
+      }
+      case "talk": {
+        const id = el.dataset.id; S.talkOpen = S.talkOpen || new Set();
+        if (S.talkOpen.has(id)) S.talkOpen.delete(id); else S.talkOpen.add(id);
+        render(); if (S.talkOpen.has(id)) document.querySelector(`#is-${CSS.escape(id)} .cmt-in input`)?.focus({ preventScroll: true });
         break;
       }
       case "news-seen": el.disabled = true; await S.api.newsSeen(S.sess.token); S.news = { count: 0, items: [] }; render(); toast("새 소식을 확인했어요"); break;
