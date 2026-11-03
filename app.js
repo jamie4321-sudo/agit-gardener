@@ -94,6 +94,7 @@ const remote = {
   issueDelete(t, id) { return this.rpc("ag_issue_delete", { p_token: t, p_id: id }); },
   commentAdd(t, issue, body) { return this.rpc("ag_issue_comment_add", { p_token: t, p_issue: issue, p_body: body }); },
   commentDelete(t, id) { return this.rpc("ag_issue_comment_delete", { p_token: t, p_id: id }); },
+  commentEdit(t, id, body) { return this.rpc("ag_issue_comment_edit", { p_token: t, p_id: id, p_body: body }); },
   react(t, issue, kind, on) { return this.rpc("ag_issue_react", { p_token: t, p_issue: issue, p_kind: kind, p_on: on }); },
   news(t) { return this.rpc("ag_issue_news", { p_token: t }); },
   newsSeen(t) { return this.rpc("ag_issue_news_seen", { p_token: t }); },
@@ -274,6 +275,12 @@ const demo = {
     const m = this.me(t), d = this.db(), x = d.issues.find(i => i.id === issue); body = String(body || "").trim().slice(0, 500);
     if (!body) throw new Error("댓글 내용을 적어 주세요"); if (!x) throw new Error("이슈를 찾지 못했어요");
     const id = "c" + Date.now(); d.comments.push({ id, issue_id: issue, body, created_by: m.id, created_at: new Date().toISOString() }); this.put(d); return id;
+  },
+  async commentEdit(t, id, body) {
+    const m = this.me(t), d = this.db(), c = d.comments.find(x => x.id === id); body = String(body || "").trim().slice(0, 500);
+    if (!body) throw new Error("댓글 내용을 적어 주세요"); if (!c) throw new Error("댓글을 찾지 못했어요");
+    if (c.created_by !== m.id) throw new Error("FORBIDDEN");
+    c.body = body; c.edited_at = new Date().toISOString(); this.put(d);
   },
   async commentDelete(t, id) {
     const m = this.me(t), d = this.db(), c = d.comments.find(x => x.id === id);
@@ -660,8 +667,15 @@ function issueTalk(x, cheers) {
     const list = hearts.filter(h => h.kind === k), on = list.some(h => h.by === me.id);
     return `<button class="cheer cheer--${k}" data-act="react" data-id="${esc(x.id)}" data-k="${k}" aria-pressed="${on}" aria-label="${label} ${on ? "빼기" : "누르기"}">${k === "heart" ? I.heart : `<span class="cheer__e" aria-hidden="true">${emo}</span>${label}`}${list.length || k === "heart" ? `<span class="num">${list.length}</span>` : ""}</button>`;
   }).join("");
-  const list = x.comments.map(c => `<li class="cmt"><div class="cmt__h"><b>${esc(c.name || "알 수 없음")}</b><small>${fmtWhen(c.at)}</small>
-      ${isMgr() || c.by === me.id ? `<button class="cmt__x" data-act="cmt-del" data-id="${esc(c.id)}" aria-label="댓글 지우기">${I.x}</button>` : ""}</div><p>${esc(c.body)}</p></li>`).join("");
+  const list = x.comments.map(c => {
+    const editing = S.cmtEdit === c.id && c.by === me.id;
+    return `<li class="cmt"><div class="cmt__h"><b>${esc(c.name || "알 수 없음")}</b><small>${fmtWhen(c.at)}</small>
+      ${c.by === me.id && !editing ? `<button class="cmt__ed" data-act="cmt-edit" data-id="${esc(c.id)}" aria-label="댓글 고치기">수정</button>` : ""}
+      ${isMgr() || c.by === me.id ? `<button class="cmt__x" data-act="cmt-del" data-id="${esc(c.id)}" aria-label="댓글 지우기">${I.x}</button>` : ""}</div>
+      ${editing ? `<form class="cmt-edit" data-id="${esc(c.id)}"><textarea maxlength="500" rows="2" aria-label="댓글 고치기">${esc(c.body)}</textarea>
+        <div class="cmt-edit__b"><button type="button" class="btn btn--sm" data-act="cmt-edit-cancel">취소</button><button class="btn btn--sm btn--main">저장</button></div></form>`
+        : `<p>${esc(c.body)}</p>`}</li>`;
+  }).join("");
   return `<div class="talk">
       ${cheers ? `<div class="cheers">${chips}</div><small class="cheers__who">${esc(who)}</small>` : ""}
       ${list ? `<ul class="cmts">${list}</ul>` : ""}
@@ -1079,6 +1093,13 @@ async function act(a, el) {
         if (S.sheet === s) { s.bsrc = bf || s.bsrc; s.asrc = af || s.asrc; render(); }
         break;
       }
+      case "cmt-edit": {
+        S.cmtEdit = el.dataset.id; render();
+        const ta = document.querySelector(`.cmt-edit[data-id="${CSS.escape(el.dataset.id)}"] textarea`);
+        if (ta) { ta.focus({ preventScroll: true }); ta.setSelectionRange(ta.value.length, ta.value.length); }
+        break;
+      }
+      case "cmt-edit-cancel": { S.cmtEdit = null; render(); break; }
       case "cmt-del": {
         if (!confirm("댓글을 지울까요?")) return;
         el.disabled = true; await S.api.commentDelete(S.sess.token, el.dataset.id); await loadIssues(); if (!S.sheet) render(); toast("댓글을 지웠어요"); break;
@@ -1146,6 +1167,20 @@ document.addEventListener("pointermove", e => { const box = e.target.closest?.("
 document.addEventListener("pointerup", e => { const box = e.target.closest?.(".cmp__box"); if (box) delete box.dataset.drag; });
 // 댓글: 엔터나 보내기 버튼
 document.addEventListener("submit", async e => {
+  const ef = e.target.closest(".cmt-edit");
+  if (ef) {
+    e.preventDefault();
+    const ta = ef.querySelector("textarea"), btns = ef.querySelectorAll("button"), body = ta.value.trim();
+    if (!body) { ta.focus(); return; }
+    btns.forEach(b => (b.disabled = true)); ta.disabled = true;
+    try { await S.api.commentEdit(S.sess.token, ef.dataset.id, body); S.cmtEdit = null; await loadIssues(); if (!S.sheet) render(); toast("댓글을 고쳤어요"); }
+    catch (err) {
+      if (err.code === "28000" || /AUTH/.test(err.message)) { logoutLocal(); await showLogin(); toast("다시 로그인해 주세요"); return; }
+      toast(missingFn(err) ? "서버 업데이트가 필요해요 (v10.sql 실행)." : errMsg(err));
+      btns.forEach(b => (b.disabled = false)); ta.disabled = false;
+    }
+    return;
+  }
   const f = e.target.closest(".cmt-in"); if (!f) return;
   e.preventDefault();
   const inp = f.querySelector("input"), btn = f.querySelector("button"), body = inp.value.trim();
@@ -1166,8 +1201,14 @@ document.addEventListener("keydown", e => {
     else if (e.key === "Escape") { S.pick = null; S.pin = ""; renderLogin(); }
   }
 });
-// 30초마다, 그리고 화면으로 돌아올 때 새로고침 (시트 열려 있으면 건너뜀)
-const typing = () => !!document.activeElement?.closest?.(".cmt-in") && !!document.activeElement.value;
+// 댓글 고치기: 엔터 = 저장, 시프트+엔터 = 줄바꿈, Esc = 취소
+document.addEventListener("keydown", e => {
+  const ta = e.target.closest?.(".cmt-edit textarea"); if (!ta) return;
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); ta.form.requestSubmit(); }
+  else if (e.key === "Escape") { S.cmtEdit = null; render(); }
+});
+// 30초마다, 그리고 화면으로 돌아올 때 새로고침 (시트 열려 있으면 건너뜀 · 댓글 쓰거나 고치는 중이면 건너뜀)
+const typing = () => S.cmtEdit != null || (!!document.activeElement?.closest?.(".cmt-in") && !!document.activeElement.value);
 const tick = () => { if (S.sess && S.board && !S.sheet && !typing() && document.visibilityState === "visible") refresh().catch(() => {}); };
 setInterval(tick, 30000);
 document.addEventListener("visibilitychange", () => {
