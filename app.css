@@ -516,3 +516,30 @@ body.is-edu .main{visibility:hidden}
 .talk-btn>span{flex:1}
 .talk-btn b{color:var(--ink);font-weight:800}
 .talk-btn[aria-expanded="true"]+.talk{border-top:0;padding-top:0}
+
+/* 현장 이슈 — 한 줄 목록 + 눌러서 펼치기 (기록이 쌓여도 한 화면에 많이 보이게) */
+.issues--rows{grid-template-columns:minmax(0,1fr);gap:.45rem;max-width:46rem}
+.irow{min-width:0;display:flex;align-items:center;gap:.7rem;width:100%;padding:.75rem .85rem;border:1px solid var(--line-soft);border-radius:var(--r);background:var(--panel);text-align:left;animation:rise .42s var(--ease-out) backwards;animation-delay:calc(var(--i,0) * 30ms);transition:border-color .2s,transform .15s var(--ease-out)}
+.irow:hover{border-color:var(--line)}
+.irow:active{transform:scale(.99)}
+.irow__st{flex:none;width:.65rem;height:.65rem;border-radius:50%;background:var(--warn)}
+.irow.is-done .irow__st{background:var(--ok)}
+.zcode--sm{min-width:2.6rem;height:2.6rem;padding:0 .4rem;border-radius:var(--r-sm);font-size:1rem;flex:none}
+.irow__t{flex:1;min-width:0;display:flex;flex-direction:column;gap:.1rem}
+.irow__t b{font-size:1rem;font-weight:800;line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+.irow__t small{font-size:.82rem;font-weight:700;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.irow.is-done .irow__t b{color:var(--ink-2)}
+.irow__m{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:.25rem}
+.irow__open{font-size:.78rem;font-weight:800;padding:.2rem .55rem;border-radius:999px;background:color-mix(in srgb,var(--warn) 12%,var(--panel));color:var(--warn);white-space:nowrap}
+.irow__done{display:inline-flex;align-items:center;gap:.15rem;font-size:.78rem;font-weight:800;color:var(--ok);white-space:nowrap}
+.irow__done .i{width:.95rem;height:.95rem}
+.irow__n{display:flex;align-items:center;gap:.2rem;font-size:.8rem;font-weight:800;color:var(--ink-3)}
+.irow__n .i{width:.95rem;height:.95rem}
+.irow__n .num+.i{margin-left:.35rem}
+.again{align-self:flex-start;margin-top:.15rem;font-size:.75rem;font-weight:800;padding:.1rem .5rem;border-radius:999px;background:color-mix(in srgb,var(--bad) 10%,var(--panel));color:var(--bad);white-space:nowrap}
+.again-line{margin:0;display:flex;align-items:center;gap:.4rem;font-size:.85rem;font-weight:700;color:var(--ink-3)}
+.again-line .again{margin:0}
+.issues--rows .issue{border-color:var(--ink)}
+.fold{align-self:center;display:inline-flex;align-items:center;gap:.25rem;border:0;background:none;padding:.35rem .8rem;border-radius:999px;font-size:.88rem;font-weight:800;color:var(--ink-3)}
+.fold:hover{color:var(--ink);background:var(--panel-2)}
+.fold .i{width:1rem;height:1rem}

@@ -683,6 +683,30 @@ function issueTalk(x, cheers) {
     </div>`;
 }
 // 현장 이슈 · 주간 보기 (월~일). 이번 주에는 지난주부터 남은 진행 중 이슈도 같이 보여요.
+// 한 줄 목록: 이슈 한 건 = 한 줄, 누르면 그 자리에서 카드(사진·댓글·버튼)가 펼쳐짐
+const isOpenRow = x => S.issueOpen?.has(x.id) || S.flash === x.id;
+// 같은 장소(층+위치)에서 몇 번째로 나온 이슈인지 — 지금 불러온 주 안에서 셈
+function samePlaceNth(x, all) {
+  const key = y => `${y.zone || ""}|${(y.place || "").trim()}`;
+  if (!x.zone && !(x.place || "").trim()) return 0;
+  const same = all.filter(y => key(y) === key(x)).sort((a, b) => a.created_at.localeCompare(b.created_at));
+  return same.length > 1 ? same.findIndex(y => y.id === x.id) + 1 : 0;
+}
+function issueRow(x, i, all) {
+  const nth = samePlaceNth(x, all), nPh = x.photos.length, nCm = x.comments?.length || 0;
+  const again = nth > 1 ? `<span class="again">같은 곳 ${nth}번째</span>` : "";
+  if (isOpenRow(x)) {
+    return issueCard(x, i).replace(/<\/article>$/, `${again ? `<p class="again-line">${again} 이번 주에 같은 곳에서 또 나왔어요</p>` : ""}
+      <button class="fold" data-act="irow" data-id="${esc(x.id)}" aria-expanded="true">${I.up} 접기</button></article>`);
+  }
+  return `<button class="irow ${x.done_at ? "is-done" : ""}" data-act="irow" data-id="${esc(x.id)}" aria-expanded="false" style="--i:${i}">
+      <span class="irow__st" aria-label="${x.done_at ? "조치 완료" : "진행 중"}"></span>
+      ${x.zone ? `<span class="zcode zcode--sm">${esc(x.zone)}</span>` : `<span class="zcode zcode--sm zcode--none">${I.pin}</span>`}
+      <span class="irow__t"><b>${esc(x.memo || issuePlace(x))}</b><small>${esc(issuePlace(x))} · ${esc(x.created_name || "알 수 없음")}</small>${again}</span>
+      <span class="irow__m">${x.done_at ? `<span class="irow__done">${I.check}완료</span>` : `<span class="irow__open">진행 중</span>`}
+        <span class="irow__n">${nPh ? `${I.cam}<span class="num">${nPh}</span>` : ""}${nCm ? `${I.msg}<span class="num">${nCm}</span>` : ""}</span></span>
+    </button>`;
+}
 function viewIssues() {
   const wk = S.issueWeek || monday(today()), cur = wk === monday(today()), tab = S.issueTab || "all", d = S.issues;
   const head = `<header class="head"><h1>현장 이슈</h1><p>현장 사진으로 이슈를 남기고, 조치했으면 '조치 완료'를 눌러요.</p></header>`;
@@ -701,11 +725,11 @@ function viewIssues() {
   const keep = x => tab === "all" || (tab === "open" ? !x.done_at : !!x.done_at);
   const cards = inWeek.filter(keep), carried = carry.filter(keep);
   let i = 0, body = "";
-  if (carried.length) body += `<section class="dayg"><h2 class="dayh">지난주부터 진행 중 <span class="num">${carried.length}</span></h2><div class="issues">${carried.map(x => issueCard(x, i++)).join("")}</div></section>`;
+  if (carried.length) body += `<section class="dayg"><h2 class="dayh">지난주부터 진행 중 <span class="num">${carried.length}</span></h2><div class="issues issues--rows">${carried.map(x => issueRow(x, i++, d.items)).join("")}</div></section>`;
   const days = [...new Set(cards.map(x => x.day))].sort().reverse();
   body += days.map(day => {
     const list = cards.filter(x => x.day === day);
-    return `<section class="dayg"><h2 class="dayh">${dayWord(day) === "오늘" || dayWord(day) === "어제" ? dayWord(day) + " · " : ""}${fmtDay(day)} <span class="num">${list.length}</span></h2><div class="issues">${list.map(x => issueCard(x, i++)).join("")}</div></section>`;
+    return `<section class="dayg"><h2 class="dayh">${dayWord(day) === "오늘" || dayWord(day) === "어제" ? dayWord(day) + " · " : ""}${fmtDay(day)} <span class="num">${list.length}</span></h2><div class="issues issues--rows">${list.map(x => issueRow(x, i++, d.items)).join("")}</div></section>`;
   }).join("");
   if (!body) body = `<div class="empty"><b>${tab === "open" ? "진행 중인 이슈가 없어요" : tab === "done" ? "조치 완료한 이슈가 없어요" : cur ? "이번 주 이슈가 아직 없어요" : "이 주에는 이슈가 없었어요"}</b><p>${cur ? "현장에서 사진을 찍어 올려 보세요." : "주를 바꿔서 볼 수 있어요."}</p></div>`;
   return `${head}${pushCard()}${newsCard()}${bar}${sum}${add}${seg}${body}`;
@@ -1071,6 +1095,13 @@ async function act(a, el) {
         x.hearts = on ? [...x.hearts, { by: me.id, kind: k, name: me.name }] : x.hearts.filter(h => !mineK(h)); render();
         if (on) navigator.vibrate?.(20);
         try { await S.api.react(S.sess.token, x.id, k, on); } finally { await loadIssues(); if (!S.sheet) render(); }
+        break;
+      }
+      case "irow": {
+        const id = el.dataset.id; S.issueOpen = S.issueOpen || new Set();
+        if (S.issueOpen.has(id) || S.flash === id) { S.issueOpen.delete(id); if (S.flash === id) S.flash = null; } else S.issueOpen.add(id);
+        render();
+        document.getElementById(`is-${id}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
         break;
       }
       case "talk": {
