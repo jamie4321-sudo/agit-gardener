@@ -543,3 +543,4 @@ body.is-edu .main{visibility:hidden}
 .fold{align-self:center;display:inline-flex;align-items:center;gap:.25rem;border:0;background:none;padding:.35rem .8rem;border-radius:999px;font-size:.88rem;font-weight:800;color:var(--ink-3)}
 .fold:hover{color:var(--ink);background:var(--panel-2)}
 .fold .i{width:1rem;height:1rem}
+.calm .irow,.calm .issue{animation:none}

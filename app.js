@@ -1100,7 +1100,10 @@ async function act(a, el) {
       case "irow": {
         const id = el.dataset.id; S.issueOpen = S.issueOpen || new Set();
         if (S.issueOpen.has(id) || S.flash === id) { S.issueOpen.delete(id); if (S.flash === id) S.flash = null; } else S.issueOpen.add(id);
+        // 펼치기·접기 때는 목록이 다시 떠오르는 애니메이션을 끔 (깜빡임 방지)
+        document.documentElement.classList.add("calm"); clearTimeout(S.calmT);
         render();
+        S.calmT = setTimeout(() => document.documentElement.classList.remove("calm"), 700);
         document.getElementById(`is-${id}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
         break;
       }
