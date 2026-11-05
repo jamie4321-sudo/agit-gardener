@@ -80,6 +80,7 @@ const remote = {
   memberDelete(t, id) { return this.rpc("ag_member_delete", { p_token: t, p_id: id }); },
   memberOrder(t, ids) { return this.rpc("ag_member_order", { p_token: t, p_ids: ids }); },
   zoneSave(t, old, code, label) { return this.rpc("ag_zone_save", { p_token: t, p_old: old || null, p_code: code, p_label: label }); },
+  zoneAdd(t, code, label) { return this.rpc("ag_zone_add", { p_token: t, p_code: code, p_label: label }); },
   zoneDelete(t, code) { return this.rpc("ag_zone_delete", { p_token: t, p_code: code }); },
   zoneOrder(t, codes) { return this.rpc("ag_zone_order", { p_token: t, p_codes: codes }); },
   memberSave(t, m) { return this.rpc("ag_member_save", { p_token: t, p_id: m.id || null, p_name: m.name, p_role: m.role, p_pin: m.pin || null, p_sort: m.sort, p_active: m.active }); },
@@ -208,6 +209,12 @@ const demo = {
       if (code !== old) { d.assign.forEach(a => (a.zones = a.zones.map(z => (z === old ? code : z)))); d.done.forEach(x => { if (x.zone === old) x.zone = code; }); d.issues.forEach(x => { if (x.zone === old) x.zone = code; }); }
     }
     this.put(d);
+  },
+  async zoneAdd(t, code, label) {
+    this.me(t); const d = this.db(); code = String(code || "").replace(/층|\s/g, "").toUpperCase();
+    if (!/^[A-Z0-9]{1,6}$/.test(code)) throw new Error("층 이름은 영어·숫자 6자 이내예요 (예: 7B, B1)");
+    if (!d.zones.some(z => z.code === code)) { d.zones.push({ code, label: String(label || "").trim() || code + "층" }); this.put(d); }
+    return code;
   },
   async zoneDelete(t, code) {
     this.adm(t); const d = this.db();
@@ -634,6 +641,8 @@ const fmtWhen = iso => {
 };
 const thumbs = (ps, label) => ps.length ? `<div class="shots"><h4>${label} <span class="num">${ps.length}</span></h4><div class="shots__g">${ps.map(p =>
   `<button class="shot" data-act="photo" data-id="${esc(p.id)}" aria-label="${label} 사진 크게 보기"><img src="${p.thumb}" alt="" loading="lazy"></button>`).join("")}</div></div>` : "";
+// 7B → 7층 B, B1 → 지하 1층, 12 → 12층
+const zoneAutoLabel = c => { let m = /^B(\d+)$/.exec(c); if (m) return `지하 ${m[1]}층`; m = /^(\d+)([A-Z]*)$/.exec(c); return m ? `${m[1]}층${m[2] && m[2] !== "F" ? " " + m[2] : ""}` : c; };
 const issuePlace = x => x.zone && x.place ? `${zoneLabel(x.zone)} · ${x.place}` : x.place || (x.zone ? zoneLabel(x.zone) : "위치 정하지 않음");
 const monday = d => { const w = (parse(d).getDay() + 6) % 7; return addDays(d, -w); };
 function issueCard(x, i) {
@@ -876,7 +885,8 @@ function renderSheet() {
         <div class="field"><label for="i-place">어디인가요? <small>(선택 · 직접 적어도 돼요)</small></label>
           <input id="i-place" value="${esc(s.place)}" maxlength="40" autocomplete="off" placeholder="예) 3층 회의실 앞, 1층 로비 입구">
           ${(S.issues?.places || []).length ? `<div class="places"><small>최근 위치</small>${S.issues.places.map(pl => `<button class="place" data-act="issue-place" data-p="${esc(pl)}" aria-pressed="${s.place === pl}">${I.pin}${esc(pl)}</button>`).join("")}</div>` : ""}</div>
-        <div class="field"><span>층 <small>(선택)</small></span><div class="pick">${S.board.zones.map(z => `<button data-act="issue-zone" data-z="${esc(z.code)}" aria-pressed="${s.zone === z.code}"><b>${esc(z.code)}</b><small>${esc(z.label)}</small></button>`).join("")}</div></div>
+        <div class="field"><span>층 <small>(선택 · 없으면 추가해요)</small></span><div class="pick">${S.board.zones.map(z => `<button data-act="issue-zone" data-z="${esc(z.code)}" aria-pressed="${s.zone === z.code}"><b>${esc(z.code)}</b><small>${esc(z.label)}</small></button>`).join("")}<button class="pick__add" data-act="issue-zone-new" aria-expanded="${!!s.zoneNew}">${I.plus}<small>층 추가</small></button></div>
+          ${s.zoneNew ? `<div class="zadd"><div class="zadd__row"><label class="zadd__code"><span>층 이름</span><input id="za-code" value="${esc(s.zaCode || "")}" maxlength="8" autocomplete="off" autocapitalize="characters" placeholder="예) 7B" autofocus></label><label class="zadd__label"><span>설명 <small>(선택)</small></span><input id="za-label" value="${esc(s.zaLabel || "")}" maxlength="30" autocomplete="off" placeholder="예) 7층 B"></label></div><p class="hint">영어·숫자 6자 이내 (예: 7B, B1, RF). 추가하면 모두의 층 목록에 생기고 이 이슈에 바로 골라져요.</p><div class="zadd__f"><button class="btn btn--ghost" data-act="issue-zone-new">닫기</button><button class="btn btn--main" data-act="issue-zone-add">추가하기</button></div></div>` : ""}</div>
       </div>
       <div class="sheet__f"><button class="btn btn--ghost" data-act="close">취소</button><button class="btn btn--main" data-act="save-issue" ${s.busyPhoto ? "disabled" : ""}>${isNew ? "올리기" : "저장하기"}</button></div></section>`;
   }
@@ -944,6 +954,8 @@ function syncSheetFields() {
   const p = document.getElementById("m-pin"); if (p) S.sheet.pin = p.value;
   const zc = document.getElementById("z-code"); if (zc) S.sheet.code = zc.value;
   const zl = document.getElementById("z-label"); if (zl) S.sheet.label = zl.value;
+  const zac = document.getElementById("za-code"); if (zac) S.sheet.zaCode = zac.value;
+  const zal = document.getElementById("za-label"); if (zal) S.sheet.zaLabel = zal.value;
   const im = document.getElementById("i-memo"); if (im) S.sheet.memo = im.value;
   const ip = document.getElementById("i-place"); if (ip) S.sheet.place = ip.value;
   const idy = document.getElementById("i-day"); if (idy) S.sheet.day = idy.value || today();
@@ -1063,6 +1075,18 @@ async function act(a, el) {
       }
       case "issue-place": syncSheetFields(); S.sheet.place = S.sheet.place === el.dataset.p ? "" : el.dataset.p; render(); break;
       case "issue-zone": syncSheetFields(); S.sheet.zone = S.sheet.zone === el.dataset.z ? "" : el.dataset.z; render(); break;
+      case "issue-zone-new": syncSheetFields(); S.sheet.zoneNew = !S.sheet.zoneNew; render(); if (S.sheet.zoneNew) document.getElementById("za-code")?.focus(); break;
+      case "issue-zone-add": {
+        syncSheetFields(); const s = S.sheet, code = String(s.zaCode || "").replace(/층|\s/g, "").toUpperCase();
+        if (!/^[A-Z0-9]{1,6}$/.test(code)) { toast("층 이름은 영어·숫자 6자 이내예요 (예: 7B, B1)"); return; }
+        const had = S.board.zones.some(z => z.code === code);
+        el.disabled = true;
+        const got = await S.api.zoneAdd(S.sess.token, code, (s.zaLabel || "").trim() || zoneAutoLabel(code));
+        await loadBoard();
+        if (S.sheet !== s) return;
+        Object.assign(s, { zone: got || code, zoneNew: false, zaCode: "", zaLabel: "" }); render();
+        toast(had ? `이미 있는 층이라 ${code}을(를) 골랐어요` : `${code} 층을 추가했어요`); break;
+      }
       case "photo-rm": {
         syncSheetFields();
         if (el.dataset.i != null) S.sheet.add.splice(+el.dataset.i, 1); else S.sheet.del.push(el.dataset.id);

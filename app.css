@@ -544,3 +544,15 @@ body.is-edu .main{visibility:hidden}
 .fold:hover{color:var(--ink);background:var(--panel-2)}
 .fold .i{width:1rem;height:1rem}
 .calm .irow,.calm .issue{animation:none}
+/* 이슈 올리기 — 없는 층 바로 추가 */
+.pick .pick__add{align-items:center;justify-content:center;border-style:dashed;border-color:var(--line);background:transparent;color:var(--ink-2)}
+.pick .pick__add .i{width:1.5rem;height:1.5rem}
+.pick .pick__add[aria-expanded="true"]{border-style:solid;border-color:var(--ink-2);color:var(--ink)}
+.zadd{margin-top:.6rem;padding:.85rem;border-radius:var(--r);background:var(--panel-2);display:grid;gap:.6rem}
+.zadd__row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:.55rem}
+.zadd label{display:grid;gap:.3rem;min-width:0;font-weight:800;font-size:.85rem}
+.zadd label small{font-weight:700;color:var(--ink-3)}
+.zadd input{width:100%;min-width:0;background:var(--panel)}
+.zadd__code input{text-transform:uppercase;font-weight:900}
+.zadd .hint{margin:0}
+.zadd__f{display:flex;gap:.5rem;justify-content:flex-end}
