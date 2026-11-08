@@ -500,7 +500,7 @@ const MGR_VIEWS = ["assign", "admin"];
 const locked = k => !ASSIGN_ON && ["me", "all", "assign"].includes(k);
 const navAttr = k => locked(k) ? 'aria-disabled="true" class="is-off" title="준비 중이에요"' : S.view === k ? 'aria-current="page"' : "";
 function navItems() {
-  const items = [["me", "내 업무", I.me, "내 업무"], ["all", "전체 보기", I.all, "전체"], ["issues", "현장 이슈", I.issue, "현장 이슈"], ["heat", "체감온도 기록", I.heat, "체감온도"], ["edu", "교육 자료", I.book, "교육"]];
+  const items = [["me", "내 업무", I.me, "내 업무"], ["all", "전체 보기", I.all, "전체"], ["issues", "현장 이슈", I.issue, "현장 이슈"], ["heat", "체감 온도 기록", I.heat, "체감 온도"], ["edu", "교육 자료", I.book, "교육"]];
   if (isMgr()) items.push(["assign", "업무 배정", I.assign, "배정"]);
   if (isAdmin()) items.push(["admin", "관리자 설정", I.team, "설정"]);
   return items;
