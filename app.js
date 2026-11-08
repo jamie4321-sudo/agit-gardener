@@ -45,6 +45,7 @@ const I = {
   up: '<svg class="i" viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></svg>',
   down: '<svg class="i" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>',
   issue: '<svg class="i" viewBox="0 0 24 24"><path d="M5 21V4h11l-1.5 4L16 12H5"/></svg>',
+  heat: '<svg class="i" viewBox="0 0 24 24"><path d="M10 13.5V5a2 2 0 1 1 4 0v8.5a4 4 0 1 1-4 0z"/><path d="M12 9v6"/></svg>',
   cam: '<svg class="i" viewBox="0 0 24 24"><path d="M4 8h3l1.5-2.5h7L17 8h3v11H4z"/><circle cx="12" cy="13.2" r="3.4"/></svg>',
   pin: '<svg class="i" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></svg>',
   heart: '<svg class="i" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z"/></svg>',
@@ -499,7 +500,7 @@ const MGR_VIEWS = ["assign", "admin"];
 const locked = k => !ASSIGN_ON && ["me", "all", "assign"].includes(k);
 const navAttr = k => locked(k) ? 'aria-disabled="true" class="is-off" title="준비 중이에요"' : S.view === k ? 'aria-current="page"' : "";
 function navItems() {
-  const items = [["me", "내 업무", I.me, "내 업무"], ["all", "전체 보기", I.all, "전체"], ["issues", "현장 이슈", I.issue, "현장 이슈"], ["edu", "교육 자료", I.book, "교육"]];
+  const items = [["me", "내 업무", I.me, "내 업무"], ["all", "전체 보기", I.all, "전체"], ["issues", "현장 이슈", I.issue, "현장 이슈"], ["heat", "체감온도", I.heat, "체감온도"], ["edu", "교육 자료", I.book, "교육"]];
   if (isMgr()) items.push(["assign", "업무 배정", I.assign, "배정"]);
   if (isAdmin()) items.push(["admin", "관리자 설정", I.team, "설정"]);
   return items;
@@ -507,7 +508,7 @@ function navItems() {
 function render() {
   if (!S.board) return;
   const me = S.board.me, nav = navItems();
-  const views = { me: viewMe, all: viewAll, issues: viewIssues, edu: () => "", assign: viewAssign, admin: viewAdmin };
+  const views = { me: viewMe, all: viewAll, issues: viewIssues, heat: viewHeat, edu: () => "", assign: viewAssign, admin: viewAdmin };
   if (!nav.some(([k]) => k === S.view) || locked(S.view)) S.view = firstView(me);
   const badge = k => k !== "issues" ? "" : S.news?.count ? `<span class="badge badge--news num" title="새 소식">${I.heart}${S.news.count}</span>`
     : S.issues?.open_all ? `<span class="badge num">${S.issues.open_all}</span>` : "";
@@ -824,8 +825,214 @@ function zoneNoteFields(s) {
   return `<h3 class="znotes__h">층별 전달 내용 <small>(선택 · 가드너 층 타일에 크게 보여요)</small></h3>` + sortZones(s.zones).map(z =>
     `<div class="znote"><label for="zn-${esc(z)}"><b>${esc(z)}</b><span>${esc(zoneLabel(z))}</span></label><textarea id="zn-${esc(z)}" data-zn="${esc(z)}" rows="2" maxlength="500" placeholder="예) 창가 화분은 물을 조금만 주세요.">${esc(s.zoneNotes[z] || "")}</textarea></div>`).join("");
 }
+// ── 체감온도 기록 — 아지트 가든 대시보드(체감온도기록)와 같은 구글 시트(heatLogs)를 함께 써요 ──
+// 공식·단계는 garden-dash js/app.js 의 htFeel·htLevel 과 같아요 (5~9월 여름: 기온+습도, 10~4월 겨울: 기온+바람)
+const HEAT_API = CFG.heatApi || "";
+const HEAT_PENDING = "ag-heat-pending";
+const htSummer = m => m >= 5 && m <= 9;
+function htFeel(dateStr, t, rh, wind) {
+  const T = Number(t);
+  if (!isFinite(T)) return null;
+  const m = Number(String(dateStr || "").slice(5, 7)) || (new Date().getMonth() + 1);
+  if (htSummer(m)) {
+    const RH = Number(rh);
+    if (!isFinite(RH)) return Math.round(T * 10) / 10;
+    const tw = T * Math.atan(0.151977 * Math.sqrt(RH + 8.313659)) + Math.atan(T + RH) - Math.atan(RH - 1.67633)
+      + 0.00391838 * Math.pow(RH, 1.5) * Math.atan(0.023101 * RH) - 4.686035;
+    const f = -0.2442 + 0.55399 * tw + 0.45535 * T - 0.0022 * tw * tw + 0.00278 * tw * T + 3.0;
+    return Math.round(f * 10) / 10;
+  }
+  const V = (Number(wind) || 0) * 3.6;
+  if (T <= 10 && V >= 4.8) {
+    const f = 13.12 + 0.6215 * T - 11.37 * Math.pow(V, 0.16) + 0.3965 * Math.pow(V, 0.16) * T;
+    return Math.round(f * 10) / 10;
+  }
+  return Math.round(T * 10) / 10;
+}
+// [단계, 크루에게 보여줄 말, 색 키]
+function htLevel(feel, dateStr) {
+  if (feel == null) return ["—", "", "none"];
+  const m = Number(String(dateStr || "").slice(5, 7)) || (new Date().getMonth() + 1);
+  if (htSummer(m) || feel >= 25) {
+    if (feel >= 38) return ["위험", "옥외 작업을 멈춰요. 시원한 곳에서 쉬어요.", "danger"];
+    if (feel >= 35) return ["경고", "1시간마다 15분 쉬어요. 오후 2~5시 옥외 작업은 줄여요.", "warn"];
+    if (feel >= 33) return ["주의", "2시간마다 20분 이상 쉬어요. 물을 자주 마셔요.", "caution"];
+    if (feel >= 31) return ["관심", "물과 그늘을 준비해요. 몸이 이상하면 바로 말해요.", "watch"];
+    return ["보통", "평소처럼 일해요. 물은 자주 마셔요.", "ok"];
+  }
+  if (feel <= -45) return ["위험", "옥외 작업을 멈춰요. 따뜻한 곳에 있어요.", "danger"];
+  if (feel <= -25) return ["경고", "옥외 작업을 짧게 해요. 자주 따뜻한 곳에서 쉬어요.", "warn"];
+  if (feel <= -10) return ["주의", "장갑·모자를 쓰고 따뜻한 곳에서 자주 쉬어요.", "caution"];
+  return ["보통", "평소처럼 일해요. 옷을 따뜻하게 입어요.", "ok"];
+}
+const HT_RANK = { none: 0, ok: 1, watch: 2, caution: 3, warn: 4, danger: 5 };
+function htNorm(x) {
+  const r = {
+    id: String(x.id || ""), date: String(x.date || "").slice(0, 10), time: String(x.time || "").slice(0, 5),
+    place: x.place || "실내", zone: x.zone || "",
+    temp: x.temp === "" || x.temp == null ? "" : Number(x.temp),
+    hum: x.hum === "" || x.hum == null ? "" : Number(x.hum),
+    wind: x.wind === "" || x.wind == null ? "" : Number(x.wind),
+    by: x.by || "", action: x.action || "", memo: x.memo || "", created: Number(x.created) || 0, photo: String(x.photo || ""),
+  };
+  r.feel = htFeel(r.date, r.temp, r.hum, r.wind);
+  return r;
+}
+function htPost(data, deleted) {
+  if (!HEAT_API || S.mode === "demo") return Promise.resolve();
+  return fetch(HEAT_API, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ type: "heatLogs", data, deleted: deleted || [] }) });
+}
+// 시트가 기준 — 이 기기에서 방금(10분 안) 넣고 아직 시트에 안 보이는 것만 남겨 둬요 (대시보드와 같은 규칙)
+async function loadHeat(quiet) {
+  if (!S.heat) S.heat = { list: [], loaded: false, err: "" };
+  let remote = null;
+  if (HEAT_API && S.mode !== "demo") {
+    try {
+      const r = await fetch(HEAT_API + (HEAT_API.includes("?") ? "&" : "?") + "action=heat&t=" + Date.now(), { cache: "no-store" });
+      const j = await r.json();
+      remote = (Array.isArray(j.heatLogs) ? j.heatLogs : []).map(htNorm).filter(x => x.id && x.date);
+      S.heat.err = "";
+    } catch (e) { S.heat.err = "시트를 불러오지 못했어요. 잠시 뒤 다시 열어 주세요."; }
+  }
+  const ids = new Set((remote || []).map(x => x.id));
+  let pend = load(HEAT_PENDING, []).map(htNorm);
+  pend = pend.filter(x => !ids.has(x.id) && (S.mode === "demo" || Date.now() - x.created < 10 * 60 * 1000));
+  // 시트에 아직 안 보이는 내 기록은 한 번 더 보내요 (id 로 합쳐져서 두 번 생기지 않아요)
+  const resend = pend.filter(x => Date.now() - x.created > 60 * 1000);
+  if (remote && resend.length) htPost(resend).catch(() => {});
+  save(HEAT_PENDING, pend);
+  S.heat.list = (remote || S.heat.list.filter(x => !pend.some(p => p.id === x.id))).concat(pend);
+  S.heat.loaded = true;
+  if (S.view === "heat" && !S.sheet && !quiet) render();
+  else if (S.view === "heat" && !S.sheet) render();
+}
+setInterval(() => { if (S.sess && S.view === "heat" && !S.sheet && document.visibilityState === "visible") loadHeat(true); }, 60 * 1000);
+
+function heatRow(x) {
+  const lv = htLevel(x.feel, x.date);
+  return `<li class="ht-row">
+    <span class="ht-row__t num">${esc(x.time || "—")}</span>
+    <span class="ht-row__w"><b>${esc(x.place)}</b>${x.zone ? `<small>${esc(x.zone)}</small>` : ""}</span>
+    <span class="ht-row__v num">${x.temp === "" ? "—" : x.temp + "℃"}<small>${x.hum === "" ? "" : x.hum + "%"}</small></span>
+    <span class="ht-chip ht-lv--${lv[2]}"><b class="num">${x.feel == null ? "—" : x.feel + "℃"}</b>${lv[0]}</span>
+    <span class="ht-row__by">${x.photo ? `<a class="ht-ph" href="${esc(x.photo.split("\n")[0])}" target="_blank" rel="noopener" aria-label="온도계 사진 보기">${I.cam}사진</a>` : ""}${esc(x.by || "")}</span>
+  </li>`;
+}
+function viewHeat() {
+  const head = `<header class="head"><h1>체감온도 기록</h1></header>`;
+  const add = `<button class="btn btn--main add-btn ht-add" data-act="heat-new">${I.heat} 체감온도 기록하기</button>`;
+  if (!HEAT_API && S.mode !== "demo") return `${head}<div class="empty"><b>연결 주소가 없어요</b><p>config.js 에 heatApi 를 넣으면 열려요.</p></div>`;
+  const h = S.heat;
+  if (!h || !h.loaded) { if (!h) loadHeat(); return `${head}${add}<div class="empty"><p>불러오는 중…</p></div>`; }
+  const ym = S.heatYm || today().slice(0, 7), cur = ym === today().slice(0, 7);
+  const [yy, mm] = ym.split("-").map(Number);
+  const bar = `<div class="datebar"><div class="d">
+      <button data-act="heat-month" data-n="-1" aria-label="지난달">${I.left}</button>
+      <label>${yy}년 ${mm}월${cur ? " · 이번 달" : ""}</label>
+      <button data-act="heat-month" data-n="1" aria-label="다음 달" ${cur ? "disabled" : ""}>${I.right}</button></div>
+    ${cur ? "" : `<button class="tool" data-act="heat-now">이번 달로</button>`}</div>`;
+  const inMonth = h.list.filter(x => x.date.slice(0, 7) === ym).sort((a, b) => (a.date + a.time < b.date + b.time ? 1 : -1));
+  let top = "";
+  if (cur) {
+    const t = today(), todays = inMonth.filter(x => x.date === t);
+    const max = todays.reduce((a, x) => (x.feel != null && (a == null || HT_RANK[htLevel(x.feel, x.date)[2]] > HT_RANK[htLevel(a.feel, a.date)[2]] || (HT_RANK[htLevel(x.feel, x.date)[2]] === HT_RANK[htLevel(a.feel, a.date)[2]] && x.feel > a.feel)) ? x : a), null);
+    const lv = max ? htLevel(max.feel, max.date) : null;
+    top = max
+      ? `<section class="ht-today ht-lv--${lv[2]}"><span>오늘 가장 높은 체감온도</span><b class="num">${max.feel}℃</b><em>${lv[0]}</em><p>${esc(lv[1])}</p><small>${esc(max.time)} · ${esc(max.place)}${max.zone ? " · " + esc(max.zone) : ""} · ${esc(max.by)} · 오늘 ${todays.length}번</small></section>`
+      : `<section class="ht-today is-none"><span>오늘은 아직 기록이 없어요</span><p>온도계를 보고 기록해 주세요.</p></section>`;
+  }
+  const days = [...new Set(inMonth.map(x => x.date))];
+  const list = days.length ? days.map(d => {
+    const rows = inMonth.filter(x => x.date === d);
+    return `<section class="dayg"><h2 class="dayh">${esc(dayWord(d))}<span class="num">${rows.length}</span></h2><ul class="ht-list">${rows.map(heatRow).join("")}</ul></section>`;
+  }).join("") : `<div class="empty"><p>${yy}년 ${mm}월 기록이 없어요.</p></div>`;
+  const err = h.err ? `<p class="ht-err">${esc(h.err)}</p>` : "";
+  return `${head}${add}${top}${bar}${err}${list}`;
+}
+
+function heatOpen() {
+  const now = new Date(), last = (S.heat?.list || []).slice().sort((a, b) => (a.date + a.time < b.date + b.time ? 1 : -1))[0];
+  S.sheet = { type: "heat", step: 0, place: "", zone: "", temp: last && last.temp !== "" ? last.temp : 24, hum: last && last.hum !== "" ? last.hum : 50,
+    wind: 0, date: today(), time: `${pad(now.getHours())}:${pad(now.getMinutes())}`, done: null, photos: [], add: [], del: [] };
+  render();
+}
+function htSteps(s) {
+  const st = ["place", "temp", "hum"];
+  if (!htSummer(Number(s.date.slice(5, 7))) && s.place === "옥외") st.push("wind");
+  st.push("check");
+  return st;
+}
+function htStepper(id, k, val, unit) {
+  return `<div class="ht-step">
+    <button type="button" class="ht-step__b" data-act="ht-dn" data-k="${k}" aria-label="내리기">−</button>
+    <label class="ht-step__v"><input id="${id}" type="text" inputmode="decimal" value="${val}" aria-label="숫자 넣기"><span>${unit}</span></label>
+    <button type="button" class="ht-step__b" data-act="ht-up" data-k="${k}" aria-label="올리기">+</button></div>`;
+}
+function heatSheet() {
+  const s = S.sheet;
+  const wrap = (title, body, foot) => `<div class="scrim" data-act="close"></div><section class="sheet ht-sheet" role="dialog" aria-modal="true" aria-label="체감온도 기록하기">
+    <div class="sheet__h"><div><h2>${title}</h2>${s.done ? "" : `<p class="ht-dots" aria-hidden="true">${htSteps(s).map((_, j) => `<i class="${j === s.step ? "on" : j < s.step ? "done" : ""}"></i>`).join("")}</p>`}</div><button class="x" data-act="close" aria-label="닫기">${I.x}</button></div>
+    <div class="sheet__b">${body}</div>${foot ? `<div class="sheet__f">${foot}</div>` : ""}</section>`;
+  const back = s.step > 0 ? `<button class="btn btn--ghost" data-act="ht-back">뒤로</button>` : `<button class="btn btn--ghost" data-act="close">닫기</button>`;
+  if (s.done) {
+    const x = s.done, lv = htLevel(x.feel, x.date);
+    return wrap("기록했어요", `<div class="ht-result ht-lv--${lv[2]}"><span>체감온도</span><b class="num">${x.feel}℃</b><em>${lv[0]}</em><p>${esc(lv[1])}</p></div>`,
+      `<button class="btn btn--ghost" data-act="close">닫기</button><button class="btn btn--main" data-act="ht-again">하나 더 기록하기</button>`);
+  }
+  const k = htSteps(s)[s.step];
+  if (k === "place") {
+    return wrap("어디서 재요?", `<div class="ht-big2">
+        <button class="ht-bigbtn" data-act="ht-place" data-p="실내" aria-pressed="${s.place === "실내"}"><b>실내</b><small>사무실 · 로비 · 정원</small></button>
+        <button class="ht-bigbtn" data-act="ht-place" data-p="옥외" aria-pressed="${s.place === "옥외"}"><b>옥외</b><small>테라스 · 바깥 화단</small></button></div>
+      <div class="field"><label for="ht-zone">자리 <small>(써도 되고 안 써도 돼요)</small></label><input id="ht-zone" value="${esc(s.zone)}" maxlength="20" placeholder="예) 5층 테라스" autocomplete="off"></div>`,
+      `<button class="btn btn--ghost" data-act="close">닫기</button>`);
+  }
+  if (k === "temp") return wrap("온도는 몇 도예요?", `<p class="ht-hint">온도계에 보이는 숫자를 넣어요. − + 로 바꿀 수 있어요.</p>${htStepper("ht-temp", "temp", s.temp, "℃")}`, `${back}<button class="btn btn--main" data-act="ht-next">다음</button>`);
+  if (k === "hum") return wrap("습도는 몇 % 예요?", `<p class="ht-hint">온도계의 % 숫자를 넣어요.</p>${htStepper("ht-hum", "hum", s.hum, "%")}`, `${back}<button class="btn btn--main" data-act="ht-next">다음</button>`);
+  if (k === "wind") {
+    const ws = [[0, "바람 없음", "나뭇잎이 안 흔들려요"], [2, "약한 바람", "나뭇잎이 살랑"], [5, "보통 바람", "작은 가지가 흔들려요"], [9, "강한 바람", "큰 가지가 흔들려요"]];
+    return wrap("바람은 어때요?", `<div class="ht-big2">${ws.map(([v, t, sm]) => `<button class="ht-bigbtn" data-act="ht-wind" data-w="${v}" aria-pressed="${Number(s.wind) === v}"><b>${t}</b><small>${sm}</small></button>`).join("")}</div>`, back);
+  }
+  const feel = htFeel(s.date, s.temp, s.hum, s.wind), lv = htLevel(feel, s.date);
+  return wrap("체감온도예요", `<div class="ht-result ht-lv--${lv[2]}"><span>체감온도</span><b class="num">${feel == null ? "—" : feel + "℃"}</b><em>${lv[0]}</em><p>${esc(lv[1])}</p></div>
+    <ul class="ht-recap">
+      <li><span>누가</span><b>${esc(S.board.me.name)}</b></li>
+      <li><span>어디</span><b>${esc(s.place)}${s.zone ? " · " + esc(s.zone) : ""}</b></li>
+      <li><span>온도</span><b class="num">${s.temp}℃ · 습도 ${s.hum}%${htSteps(s).includes("wind") ? ` · 바람 ${s.wind}m/s` : ""}</b></li>
+      <li><span>언제</span><b class="ht-when"><input id="ht-date" type="date" value="${s.date}" max="${today()}" aria-label="날짜"><input id="ht-time" type="time" value="${s.time}" aria-label="시간"></b></li>
+    </ul>
+    ${photoPicker(s, "온도계 사진 · 선택")}`, `${back}<button class="btn btn--main" data-act="ht-save" ${s.busy || s.busyPhoto ? "disabled" : ""}>${s.busy ? "사진 올리는 중…" : "기록하기"}</button>`);
+}
+async function heatSave() {
+  const s = S.sheet; if (!s || s.busy) return;
+  const rec = htNorm({ id: "h" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), date: s.date, time: s.time, place: s.place || "실내", zone: s.zone,
+    temp: s.temp, hum: s.hum, wind: htSteps(s).includes("wind") ? s.wind : "", by: S.board.me.name, action: "", memo: "", created: Date.now() });
+  if (s.add.length && HEAT_API && S.mode !== "demo") {
+    s.busy = true; render();
+    const urls = [];
+    for (const [i, ph] of s.add.entries()) {
+      try {
+        const r = await fetch(HEAT_API, { method: "POST", body: JSON.stringify({ type: "uploadSwapPhoto", name: `heat_${rec.date}_${i + 1}.jpg`, data: ph.full }) });
+        const j = await r.json();
+        if (j && j.ok && j.url) urls.push(j.url); else throw new Error((j && j.error) || "업로드 실패");
+      } catch (e) { toast("사진 한 장을 못 올렸어요. 기록은 남길게요"); }
+    }
+    rec.photo = urls.join("\n");
+  }
+  s.busy = true;
+  const pend = load(HEAT_PENDING, []); pend.push(rec); save(HEAT_PENDING, pend);
+  if (!S.heat) S.heat = { list: [], loaded: true, err: "" };
+  S.heat.list = S.heat.list.concat(rec);
+  try { await htPost([rec]); }
+  catch (e) { toast("인터넷이 끊겨 아직 못 보냈어요. 다시 열면 또 보내요"); }
+  S.sheet = { type: "heat", done: rec, step: 0, date: rec.date, place: rec.place };
+  render();
+}
+
 function renderSheet() {
   const s = S.sheet;
+  if (s.type === "heat") return heatSheet();
   if (s.type === "assign") {
     const m = S.board.members.find(x => x.id === s.id);
     return `<div class="scrim" data-act="close"></div><section class="sheet" role="dialog" aria-modal="true" aria-label="${esc(m.name)} 담당 층">
@@ -960,6 +1167,10 @@ function syncSheetFields() {
   const ip = document.getElementById("i-place"); if (ip) S.sheet.place = ip.value;
   const idy = document.getElementById("i-day"); if (idy) S.sheet.day = idy.value || today();
   const dn = document.getElementById("d-note"); if (dn) S.sheet.note = dn.value;
+  const hz = document.getElementById("ht-zone"); if (hz) S.sheet.zone = hz.value.trim();
+  [["ht-temp", "temp", -30, 50], ["ht-hum", "hum", 0, 100]].forEach(([id, k, lo, hi]) => { const el = document.getElementById(id); if (!el) return; const n = parseFloat(String(el.value).replace(",", ".")); if (isFinite(n)) S.sheet[k] = Math.min(hi, Math.max(lo, Math.round(n * 10) / 10)); });
+  const hd = document.getElementById("ht-date"); if (hd && hd.value) S.sheet.date = hd.value;
+  const htm = document.getElementById("ht-time"); if (htm && htm.value) S.sheet.time = htm.value;
   document.querySelectorAll("[data-zn]").forEach(t => { if (S.sheet.zoneNotes) S.sheet.zoneNotes[t.dataset.zn] = t.value; });
 }
 
@@ -975,7 +1186,7 @@ async function act(a, el) {
       case "logout":
         if (!confirm("로그아웃 할까요?")) return;
         await pushOff(true); S.api.logout(S.sess.token); logoutLocal(); await showLogin(); break;
-      case "go": if (locked(el.dataset.v)) { toast("배정은 준비 중이에요"); break; } S.view = el.dataset.v; render(); window.scrollTo({ top: 0 }); if (S.view === "issues") { await loadIssues(); if (!S.sheet) render(); } break;
+      case "go": if (locked(el.dataset.v)) { toast("배정은 준비 중이에요"); break; } S.view = el.dataset.v; render(); window.scrollTo({ top: 0 }); if (S.view === "issues") { await loadIssues(); if (!S.sheet) render(); } if (S.view === "heat") loadHeat(); break;
       case "push-open": S.sheet = { type: "push" }; render(); pushCheck(); break;
       case "push-hide": pref.pushHide = true; save(PREF_KEY, pref); render(); toast("위쪽 종 버튼에서 언제든 켤 수 있어요"); break;
       case "push-on": {
@@ -1180,6 +1391,16 @@ async function act(a, el) {
         await (isZone ? S.api.zoneOrder(S.sess.token, list) : S.api.memberOrder(S.sess.token, list));
         await refresh(); break;
       }
+      case "heat-new": heatOpen(); break;
+      case "heat-month": { const [y, m] = (S.heatYm || today().slice(0, 7)).split("-").map(Number); const d = new Date(y, m - 1 + Number(el.dataset.n), 1); S.heatYm = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; render(); break; }
+      case "heat-now": S.heatYm = today().slice(0, 7); render(); break;
+      case "ht-place": syncSheetFields(); S.sheet.place = el.dataset.p; S.sheet.step++; render(); break;
+      case "ht-wind": S.sheet.wind = Number(el.dataset.w); S.sheet.step++; render(); break;
+      case "ht-up": case "ht-dn": { syncSheetFields(); const k = el.dataset.k, st = k === "temp" ? 0.5 : 5, lo = k === "temp" ? -30 : 0, hi = k === "temp" ? 50 : 100; S.sheet[k] = Math.min(hi, Math.max(lo, Math.round(((Number(S.sheet[k]) || 0) + (a === "ht-up" ? st : -st)) * 10) / 10)); render(); break; }
+      case "ht-next": syncSheetFields(); S.sheet.step++; render(); break;
+      case "ht-back": syncSheetFields(); S.sheet.step = Math.max(0, S.sheet.step - 1); render(); break;
+      case "ht-save": syncSheetFields(); await heatSave(); break;
+      case "ht-again": heatOpen(); break;
       case "close": S.sheet = null; render(); break;
     }
   } catch (e) {
