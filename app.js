@@ -377,7 +377,8 @@ const missingFn = e => e && (e.status === 404 || e.code === "PGRST202" || e.code
 
 // ── 데이터 계산 ──
 const colorOf = id => { const i = (S.board?.members || S.roster || []).findIndex(m => m.id === id); return COLORS[(i < 0 ? 0 : i) % COLORS.length]; };
-const avatar = (m, cls = "") => `<span class="av ${cls}" style="--c:${colorOf(m.id)}" aria-hidden="true">${esc(initial(m.name))}</span>`;
+// 이름 앞 앞글자 동그라미는 쓰지 않아요 (Jamie 11-10: 이름만 깔끔하게)
+const avatar = () => "";
 const zoneNote = (a, code) => a?.zone_notes?.[code] || "";
 const zoneLabel = code => S.board?.zones.find(z => z.code === code)?.label || code;
 const assignOf = id => S.board?.assign.find(a => a.member === id) || null;
@@ -1035,7 +1036,7 @@ function viewRest() {
   for (let d = 1; d <= last; d++) {
     const day = `${ym}-${pad(d)}`, ppl = restOn(day), we = isWeekend(day), mineHere = ppl.some(p => p.member === me.id);
     const cls = [we && "is-we", day < t && "is-past", day === t && "is-today", mineHere && "is-mine", S.restDay === day && "is-sel"].filter(Boolean).join(" ");
-    const faces = S.restHide ? "" : ppl.slice(0, 3).map(p => avatar({ id: p.member, name: p.name }, "rs-av")).join("");
+    const faces = S.restHide || !ppl.length ? "" : `<small class="rs-cnt">${ppl.length}명</small>`;
     const lbl = `${mm}월 ${d}일${we ? " 주말" : ""}${ppl.length ? ` · ${ppl.map(p => p.name + " " + restTime(p)).join(", ")}` : ""}`;
     cells += `<button class="rs-cell ${cls}" data-act="rest-day" data-d="${day}" aria-label="${esc(lbl)}" ${we ? "disabled" : ""}><b class="num">${d}</b><span class="rs-faces">${faces}</span></button>`;
   }

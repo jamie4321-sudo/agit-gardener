@@ -742,3 +742,13 @@ body.is-edu .main{visibility:hidden}
 .rs-st.is-ok{color:var(--accent-text)}
 .rs-st.is-wait{color:var(--warn)}
 .rs-st .i{width:1rem;height:1rem;stroke-width:2.6}
+/* 이름 앞 동그라미 없음 (11-10) — 아바타 칸을 빼고 다시 맞춤 */
+.row,.row--admin{grid-template-columns:minmax(0,1fr) auto}
+.rs-mine{grid-template-columns:minmax(0,1fr) auto}
+.rs-cnt{font-size:.68rem;font-weight:900;line-height:1;padding:.18rem .35rem;border-radius:6px;background:var(--panel-2);color:var(--ink-2)}
+.rs-cell.is-mine .rs-cnt{background:rgba(255,255,255,.55);color:var(--accent-ink)}
+.who b{font-size:1.4rem}
+.who button{justify-content:center;min-height:6.5rem}
+.rs-now li{padding:.3rem .4rem .3rem .9rem}
+@media (max-width:860px){.row,.row--admin{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:860px){.who button{min-height:4.4rem;padding:.7rem .5rem}.who b{font-size:1.25rem}}
