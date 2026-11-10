@@ -734,3 +734,11 @@ body.is-edu .main{visibility:hidden}
 .rs-kpick small{font-size:.85rem;color:var(--ink-3);font-weight:700}
 .rs-kpick__ic{width:2.75rem;height:2.75rem;flex:none;border-radius:12px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center}
 .rs-kpick .is-soon .rs-kpick__ic{background:var(--panel-2);color:var(--ink-3)}
+/* 크루 목록 2안: 이름 크게 · 상태는 글자로 */
+.rs-team li{padding:.85rem .1rem;gap:.8rem}
+.rs-team li>div b{font-size:1.2rem;font-weight:900;letter-spacing:-.3px;line-height:1.3}
+.rs-team li>div>small{font-size:.9rem}
+.rs-st{flex:none;display:inline-flex;align-items:center;gap:.2rem;font-size:.95rem;font-weight:900;color:var(--ink);white-space:nowrap}
+.rs-st.is-ok{color:var(--accent-text)}
+.rs-st.is-wait{color:var(--warn)}
+.rs-st .i{width:1rem;height:1rem;stroke-width:2.6}

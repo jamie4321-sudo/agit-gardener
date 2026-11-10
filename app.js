@@ -1064,7 +1064,7 @@ function viewRest() {
   const ws = workers(), done = ws.filter(w => restOf(w.id)).length;
   const list = `<section class="rs-team"><h2>${mm}월 크루 <span class="num">${ws.length}명 중 ${done}명 등록</span></h2><ul>${ws.map(w => {
     const r = restOf(w.id);
-    return `<li>${avatar(w)}<div><b>${esc(w.name)}${w.id === me.id ? ` <small>나</small>` : ""}</b><small>${r ? `${dayLabel(r.day)} ${restTime(r)}` : "아직 안 정했어요"}</small></div>${r ? r.day < t ? `<span class="rs-pill is-ok">썼어요</span>` : `<span class="rs-pill">예정</span>` : `<span class="rs-pill is-wait">미등록</span>`}</li>`;
+    return `<li><div><b>${esc(w.name)}${w.id === me.id ? ` <small>나</small>` : ""}</b><small class="num">${r ? `${dayLabel(r.day)} ${restTime(r)}` : "아직 안 정했어요"}</small></div>${r ? r.day < t ? `<span class="rs-st is-ok">썼어요 ${I.check}</span>` : `<span class="rs-st">예정</span>` : `<span class="rs-st is-wait">미등록</span>`}</li>`;
   }).join("")}</ul></section>`;
   const err = R.err ? `<div class="empty"><b>아직 열 수 없어요</b><p>${esc(R.err)}</p></div>` : "";
   return `${head}${err}${restTodayCard()}${mine}${cal}${dayBox}${list}`;
