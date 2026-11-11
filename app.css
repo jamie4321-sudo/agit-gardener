@@ -392,7 +392,7 @@ button.shot:active{transform:scale(.96)}
 @media (max-width:860px){
   .app{grid-template-columns:1fr}
   .side{display:none}
-  .main{padding:.75rem 16px calc(6.5rem + env(safe-area-inset-bottom));gap:.85rem}
+  .main{padding:.75rem 16px calc(7.5rem + env(safe-area-inset-bottom));gap:.85rem}
   .m-only{display:inline-flex}
   .d-only{display:none}
   .topbar .tool span{display:none}
@@ -404,10 +404,13 @@ button.shot:active{transform:scale(.96)}
   .m-head .mark{width:2.2rem;height:2.2rem;border-radius:.7rem;margin:0}
   .m-head .mark svg{width:1.3rem;height:1.3rem}
   .m-head b{font-size:1rem;font-weight:800}
-  .tabbar{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--panel);border-top:1px solid var(--line);padding:.4rem .4rem calc(.4rem + env(safe-area-inset-bottom))}
-  .tabbar button{border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.2rem;min-height:4rem;border-radius:var(--r);font-size:.85rem;font-weight:800;color:var(--ink-3)}
-  .tabbar button svg{width:1.6rem;height:1.6rem}
-  .tabbar button[aria-current="page"]{color:var(--ink);background:var(--accent-soft)}
+  /* 하단 탭: 화면 끝에서 띄운 둥근 바 + 아이콘 알약으로 지금 메뉴 표시 (칸마다 여백) */
+  .tabbar{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:.25rem;position:fixed;left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:30;background:var(--panel);border:1px solid var(--line);border-radius:1.6rem;padding:.5rem .35rem;box-shadow:0 8px 24px rgba(20,24,16,.10)}
+  .tabbar button{border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.3rem;min-height:3.9rem;padding:0;font-size:.8rem;font-weight:700;color:var(--ink-3);white-space:nowrap}
+  .tabbar__ic{padding:.3rem 1rem;border-radius:999px;transition:background .2s}
+  .tabbar button svg{width:1.45rem;height:1.45rem}
+  .tabbar button[aria-current="page"]{color:var(--ink);font-weight:800}
+  .tabbar button[aria-current="page"] .tabbar__ic{background:var(--accent-soft)}
   .tabbar button[aria-current="page"] svg{color:var(--accent-text)}
   .row{grid-template-columns:auto minmax(0,1fr);}
   .row>.btn{grid-column:1/-1}
@@ -467,7 +470,7 @@ button.shot:active{transform:scale(.96)}
   .wsum div{padding:.75rem .8rem}
   .wsum b{font-size:1.6rem}
   .wsum span{font-size:.78rem}
-  .tabbar button{font-size:.85rem;padding:0 .1rem;white-space:nowrap}
+  .tabbar__ic{padding:.3rem .8rem}
   .row__acts{flex-wrap:wrap}
   .row__acts .btn:not(.btn--ghost){padding:0 .6rem}
   .row__acts .btn:not(.btn--ghost) svg{display:none}
@@ -488,7 +491,7 @@ button.shot:active{transform:scale(.96)}
 body.is-edu #edu-frame{display:block}
 body.is-edu .main{visibility:hidden}
 @media (max-width:860px){
-  #edu-frame{left:0;width:100%;bottom:var(--tabbar-h,0px);height:calc(100% - var(--tabbar-h,0px))}
+  #edu-frame{left:0;width:100%;bottom:calc(var(--tabbar-h,0px) + 10px + env(safe-area-inset-bottom));height:calc(100% - var(--tabbar-h,0px) - 10px - env(safe-area-inset-bottom))}
 }
 
 /* 휴대폰 알림 */
