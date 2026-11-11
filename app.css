@@ -467,7 +467,7 @@ button.shot:active{transform:scale(.96)}
   .wsum div{padding:.75rem .8rem}
   .wsum b{font-size:1.6rem}
   .wsum span{font-size:.78rem}
-  .tabbar button{font-size:.78rem;padding:0 .1rem;white-space:nowrap}
+  .tabbar button{font-size:.85rem;padding:0 .1rem;white-space:nowrap}
   .row__acts{flex-wrap:wrap}
   .row__acts .btn:not(.btn--ghost){padding:0 .6rem}
   .row__acts .btn:not(.btn--ghost) svg{display:none}

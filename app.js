@@ -42,6 +42,7 @@ const I = {
   moon: '<svg class="i" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>',
   out: '<svg class="i" viewBox="0 0 24 24"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>',
   plus: '<svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+  pen: '<svg class="i" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="m13.5 6.5 4 4"/></svg>',
   up: '<svg class="i" viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></svg>',
   down: '<svg class="i" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>',
   issue: '<svg class="i" viewBox="0 0 24 24"><path d="M5 21V4h11l-1.5 4L16 12H5"/></svg>',
@@ -557,7 +558,7 @@ function render() {
       </div>
       ${views[S.view]()}
     </main>
-    <nav class="tabbar" aria-label="메뉴">${nav.map(([k, l, ic, short]) => `<button data-act="go" data-v="${k}" aria-label="${l}" ${navAttr(k)}><i class="tabbar__ic">${ic}${badge(k)}</i><span>${short}</span></button>`).join("")}</nav>
+    <nav class="tabbar" aria-label="메뉴">${nav.filter(([k]) => !locked(k)).map(([k, l, ic, short]) => `<button data-act="go" data-v="${k}" aria-label="${l}" ${navAttr(k)}><i class="tabbar__ic">${ic}${badge(k)}</i><span>${short}</span></button>`).join("")}</nav>
   </div>${S.sheet ? renderSheet() : ""}`;
   if (S.sheet) setTimeout(() => $root.querySelector(".sheet [autofocus]")?.focus(), 30);
   syncEdu();
@@ -1023,10 +1024,10 @@ function viewRest() {
     const r = restOf(me.id), past = ym < curYm;
     const [title, sub, pill] = r
       ? r.day < t ? [`${dayLabel(r.day)} ${restTime(r)}에 썼어요`, "푹 쉬셨나요?", `<span class="rs-pill is-ok">썼어요</span>`]
-        : [`${dayLabel(r.day)} ${restTime(r)}에 쉬어요`, "바꾸려면 다른 날을 눌러요", `<span class="rs-pill">예정</span>`]
+        : [`${dayLabel(r.day)} ${restTime(r)}에 쉬어요`, "날짜·시간을 바꾸려면 '수정'을 눌러요", `<span class="rs-pill">예정</span>`]
       : past ? [`${mm}월엔 1+1 휴게를 안 썼어요`, "", `<span class="rs-pill">0 / 1</span>`]
         : [`${mm}월 1+1 아직 안 썼어요`, "쉬고 싶은 날을 달력에서 눌러 주세요", `<span class="rs-pill is-wait">0 / 1</span>`];
-    const btns = r ? `<div class="rs-mine__a"><button class="btn btn--sm btn--ghost" data-act="rest-mine">그 날 보기</button><button class="btn btn--sm btn--ghost" data-act="rest-ask-cancel" data-id="${esc(me.id)}">취소</button></div>` : "";
+    const btns = r ? `<div class="rs-mine__a"><button class="btn btn--sm btn--ghost" data-act="rest-mine">그 날 보기</button><button class="btn btn--sm btn--ghost" data-act="rest-edit" data-id="${esc(me.id)}">${I.pen}수정</button><button class="btn btn--sm btn--ghost" data-act="rest-ask-cancel" data-id="${esc(me.id)}">취소</button></div>` : "";
     mine = `<section class="rs-mine${r ? " is-set" : ""}">${avatar(me, "av--lg")}<div class="rs-mine__t"><b>${esc(title)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</div>${pill}${btns}</section>`;
   }
   // 달력
@@ -1055,7 +1056,7 @@ function viewRest() {
     const day = S.restDay, ppl = restOn(day), meIn = ppl.some(p => p.member === me.id);
     const rows = ppl.map(p => {
       const can = p.member === me.id || isMgr();
-      return `<li>${avatar({ id: p.member, name: p.name })}<b>${esc(p.name)}${p.member === me.id ? ` <small>나</small>` : ""}</b><span class="rs-pill">${restTime(p)}</span>${can ? `<button class="rs-x" data-act="rest-ask-cancel" data-id="${esc(p.member)}" aria-label="${esc(p.name)} 휴게 취소">${I.x}</button>` : ""}</li>`;
+      return `<li>${avatar({ id: p.member, name: p.name })}<b>${esc(p.name)}${p.member === me.id ? ` <small>나</small>` : ""}</b><span class="rs-pill">${restTime(p)}</span>${can ? `<button class="rs-x" data-act="rest-edit" data-id="${esc(p.member)}" aria-label="${esc(p.name)} 휴게 수정">${I.pen}</button><button class="rs-x" data-act="rest-ask-cancel" data-id="${esc(p.member)}" aria-label="${esc(p.name)} 휴게 취소">${I.x}</button>` : ""}</li>`;
     }).join("");
     const why = isWeekend(day) ? "주말이에요" : "";
     const btn = why ? `<p class="rs-why">${why}</p>` : !meIn || isMgr() ? `<button class="btn btn--main btn--wide" data-act="rest-open" data-d="${day}">${meIn || me.role === "admin" ? "크루 대신 등록" : "이날 쉴게요"}</button>` : "";
@@ -1093,10 +1094,23 @@ function restSheet() {
     return wrap("1+1 휴게 취소", r ? `${who}${dayLabel(r.day)} ${restTime(r)} 휴게를 취소할까요?` : "",
       "", `<button class="btn btn--ghost" data-act="close">아니요</button><button class="btn btn--ink" data-act="rest-cancel">취소하기</button>`);
   }
-  const old = restOf(s.member), others = isMgr() ? workers() : [];
-  const dateF = s.pickDay ? `<div class="field"><label for="rs-date">날짜</label><input id="rs-date" type="date" value="${s.day}"></div>` : "";
+  const old = restOf(s.member), others = isMgr() && !s.edit ? workers() : [];
+  // 수정할 때는 같은 달 안에서만 날짜를 옮겨요 (한 달에 한 번 규칙)
+  const ym = s.edit && old ? old.day.slice(0, 7) : "", lastD = ym ? new Date(Number(ym.slice(0, 4)), Number(ym.slice(5)), 0).getDate() : 0;
+  const lim = ym ? ` min="${ym}-01" max="${ym}-${pad(lastD)}"` : "";
+  const dateF = s.pickDay ? `<div class="field"><label for="rs-date">날짜</label><input id="rs-date" type="date" value="${s.day}"${lim}></div>` : "";
   const who = others.length > 1 ? `<div class="field"><span>누가 쉬어요?</span><div class="rs-who">${others.map(w => `<button data-act="rest-who" data-id="${esc(w.id)}" aria-pressed="${s.member === w.id}">${esc(w.name)}</button>`).join("")}</div></div>` : "";
-  const move = old && old.day !== s.day ? `<p class="rs-move">지금 ${dayLabel(old.day)} ${restTime(old)} → <b>이날로 바뀌어요</b></p>` : "";
+  const move = s.edit ? "" : old && old.day !== s.day ? `<p class="rs-move">지금 ${dayLabel(old.day)} ${restTime(old)} → <b>이날로 바뀌어요</b></p>` : "";
+  if (s.edit && old) {
+    const whoName = s.member === me.id ? "" : `${esc(memberName(s.member))}님 · `;
+    const len2 = s.from && s.to && s.to > s.from ? mins(s.to) - mins(s.from) : 0;
+    const body2 = `${dateF}<div class="field"><span>몇 시부터 몇 시까지 쉬어요?</span>
+      <div class="rs-time"><label><small>시작</small><input id="rs-from" type="time" step="600" value="${esc(s.from)}" aria-label="시작 시간"></label><i aria-hidden="true">~</i><label><small>끝</small><input id="rs-to" type="time" step="600" value="${esc(s.to)}" aria-label="끝 시간"></label></div>
+      <div class="rs-len" role="group" aria-label="쉬는 시간 길이">${[[60, "1시간", "4h 크루"], [120, "2시간", "8h 크루"]].map(([m, l, w]) => `<button data-act="rest-len" data-m="${m}" aria-pressed="${len2 === m}"><b>${l}</b><small>${w}</small></button>`).join("")}</div>
+    </div><p class="rs-move">지금 ${dayLabel(old.day)} ${restTime(old)}</p>`;
+    return wrap("1+1 휴게 수정", `${whoName}바꿀 날짜와 시간을 골라 주세요. 같은 달 안에서만 바꿀 수 있어요.`, body2,
+      `<button class="btn btn--ghost" data-act="close">닫기</button><button class="btn btn--main" data-act="rest-save">수정</button>`);
+  }
   const len = s.from && s.to && s.to > s.from ? mins(s.to) - mins(s.from) : 0;
   const body = `${dateF}${who}<div class="field"><span>몇 시부터 몇 시까지 쉬어요?</span>
       <div class="rs-time"><label><small>시작</small><input id="rs-from" type="time" step="600" value="${esc(s.from)}" aria-label="시작 시간"></label><i aria-hidden="true">~</i><label><small>끝</small><input id="rs-to" type="time" step="600" value="${esc(s.to)}" aria-label="끝 시간"></label></div>
@@ -1586,11 +1600,18 @@ async function act(a, el) {
         if (!s.from || !s.to) { toast("시작과 끝 시간을 골라 주세요"); break; }
         if (s.to <= s.from) { toast("끝나는 시간이 시작보다 늦어야 해요"); break; }
         if (!s.day || isWeekend(s.day)) { toast("평일 날짜를 골라 주세요"); break; }
+        const was = s.edit ? restOf(s.member) : null;
+        if (was && s.day.slice(0, 7) !== was.day.slice(0, 7)) { toast("같은 달 안에서만 바꿀 수 있어요"); break; }
+        if (was && was.day === s.day && was.from === s.from && was.to === s.to) { S.sheet = null; render(); toast("바뀐 내용이 없어요"); break; }
         el.disabled = true;
         try { await S.api.restSet(S.sess.token, s.member === S.board.me.id ? null : s.member, s.day, s.from, s.to); }
         catch (e2) { if (missingFn(e2)) { toast("서버 업데이트가 필요해요 (v13.sql 실행)."); el.disabled = false; break; } throw e2; }
         S.sheet = null; S.restDay = s.day; S.restYm = s.day.slice(0, 7); await Promise.all([loadRest(true), loadRestNow()]); render(); navigator.vibrate?.(40);
-        toast(`${s.member === S.board.me.id ? "" : memberName(s.member) + "님 "}${fmtShort(s.day)} ${s.from}~${s.to} 등록했어요`); break;
+        toast(`${s.member === S.board.me.id ? "" : memberName(s.member) + "님 "}${fmtShort(s.day)} ${s.from}~${s.to}${s.edit ? "으로 바꿨어요" : " 등록했어요"}`); break;
+      }
+      case "rest-edit": {
+        const o = restOf(el.dataset.id); if (!o) { toast("수정할 일정이 없어요"); break; }
+        S.sheet = { type: "rest", edit: true, pickDay: true, member: el.dataset.id, day: o.day, from: o.from || "", to: o.to || "" }; render(); break;
       }
       case "rest-ask-cancel": S.sheet = { type: "rest", cancel: true, member: el.dataset.id, ym: S.restYm }; render(); break;
       case "rest-cancel": {
