@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta property="og:type" content="website">
+<meta property="og:title" content="아지트 관리 화단 담배꽁초 발견 보고서">
+<meta property="og:description" content="링키지랩 가든관리 · 연결의 시작 · 2026.10.20 ~ 11.20 발견 기록">
+<meta property="og:url" content="https://agit-gardener.pages.dev/report/cigarette/">
+<meta property="og:image" content="https://agit-gardener.pages.dev/report/cigarette/og.png">
+<meta property="og:image:width" content="400"><meta property="og:image:height" content="400">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="og.png">
+<title>아지트 관리 화단 담배꽁초 발견 보고서 (2026.11.23)</title>
+<style>
+/* garden-dash 식물 이슈 보고서(css/issue-report.css .irp-*)와 같은 종이·글자·색 */
+@font-face{font-family:"KBS";src:url(fonts/kbs-regular.woff2) format("woff2");font-weight:400}
+@font-face{font-family:"KBS";src:url(fonts/kbs-bold.woff2) format("woff2");font-weight:700}
+@font-face{font-family:"KBS";src:url(fonts/kbs-extrabold.woff2) format("woff2");font-weight:800}
+*{box-sizing:border-box}
+body{margin:0;background:#e9eae4;font-family:"KBS",system-ui,sans-serif;word-break:keep-all;-webkit-font-smoothing:antialiased;padding:28px 0 90px}
+.lbl{width:794px;margin:0 auto 10px;font-weight:800;font-size:17px;color:#16160f}
+.lbl small{display:block;font-weight:400;font-size:13px;color:#55554d;margin-top:3px}
+.a4{--pi:#16160f;--pi2:#55554d;--pi3:#8f8f85;--pl:#e2e3dd;--pb:#f3f4ef;--lime:#bff000;--lime-d:#5c7a08;--red:#d23b2f;
+  width:794px;height:1123px;margin:0 auto 50px;background:#fff;color:var(--pi);padding:40px 44px 26px;font-size:12px;line-height:1.5;position:relative;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,.08)}
+.hd{border-bottom:2px solid var(--pi);padding-bottom:12px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
+.eb{margin:0;font-size:10.5px;letter-spacing:.14em;font-weight:800;color:var(--lime-d)}
+.hd h3{margin:2px 0 0;font-size:22px;font-weight:800;letter-spacing:-.01em}
+.m{margin:4px 0 0;color:var(--pi3);font-size:11px}
+.kpi{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:14px}
+.kpi>div{background:var(--pb);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:1px;min-width:0}
+.kpi>div:first-child{background:var(--pi);color:#fff}
+.kpi>div:first-child span,.kpi>div:first-child em{color:#c9cabf}
+.kpi span{font-size:11px;font-weight:700;color:var(--pi2)}
+.kpi b{font-size:24px;font-weight:800;line-height:1.15}
+.kpi b small{font-size:12px;font-weight:700;margin-left:2px}
+.kpi em{font-style:normal;font-size:10.5px;color:var(--pi3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sum{border:1.5px solid var(--pi);border-radius:12px;padding:10px 14px;margin-bottom:14px}
+.sum h4{margin:0}
+.sum ul{margin:4px 0 0;padding-left:16px}.sum li{margin:2px 0}
+h4{margin:0 0 8px;font-size:12.5px;font-weight:800;display:flex;align-items:center;gap:8px}
+h4 small{font-size:10.5px;font-weight:600;color:var(--pi3)}
+.sec{border-top:1px solid var(--pl);padding-top:10px;margin-bottom:14px;min-width:0}
+.tbl{width:100%;border-collapse:collapse;font-size:11px}
+.tbl th{text-align:left;font-weight:800;padding:5px 4px;border-bottom:1.5px solid var(--pi);white-space:nowrap}
+.tbl td{padding:5px 4px;border-bottom:1px solid var(--pl);vertical-align:top}
+.tbl .r{text-align:right;white-space:nowrap}.tbl .nw{white-space:nowrap}.tbl .mu{color:var(--pi3)}
+.red{color:var(--red);font-weight:800;font-size:10.5px}
+.st{font-size:10.5px;color:var(--pi3);white-space:nowrap}
+.ft{display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--pl);padding-top:8px;margin-top:auto;font-size:10px;color:var(--pi3)}
+.bar{display:flex;height:10px;border-radius:99px;background:var(--pb);overflow:hidden}.bar i{display:block;height:100%;background:var(--lime)}.bar i.v{background:var(--pi)}
+.row{display:grid;grid-template-columns:120px minmax(0,1fr) 26px;align-items:center;gap:8px;padding:3px 0}
+.row span{font-size:11px;color:var(--pi2)}.row b{text-align:right;font-size:11.5px}
+/* 사진 */
+.ph{position:relative;border-radius:10px;overflow:hidden;background:var(--pb)}
+.ph img{width:100%;height:100%;object-fit:cover;display:block}
+.cap{margin-top:5px;font-size:10.5px;line-height:1.4;color:var(--pi2)}
+.cap b{color:var(--pi);font-weight:800}
+.chip{position:absolute;left:7px;top:7px;background:rgba(22,22,15,.86);color:#fff;font-size:10px;font-weight:800;padding:3px 8px;border-radius:99px;white-space:nowrap}
+.chip.l{background:var(--lime);color:var(--pi)}
+.nth{position:absolute;right:7px;top:7px;background:#fff;color:var(--red);font-size:10px;font-weight:800;padding:3px 8px;border-radius:99px}
+.ba{position:absolute;left:7px;bottom:7px;background:#fff;color:var(--pi);font-size:10px;font-weight:800;padding:2px 8px;border-radius:99px}
+.ask{background:var(--pb);border-radius:12px;padding:10px 14px}
+.ask ol{margin:4px 0 0;padding-left:18px}.ask li{margin:2px 0}
+@page{size:A4;margin:0}
+@media print{body{background:#fff;padding:0}.a4{margin:0;box-shadow:none;width:210mm;height:297mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+/* 형광펜: 글자 아래쪽 60%만 라임 */
+mark.hl{background:linear-gradient(transparent 38%,#bff000 38%,#bff000 92%,transparent 92%);color:inherit;padding:0 2px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+#fit{transform-origin:top left}
+.a4{box-shadow:0 14px 40px rgba(0,0,0,.12)!important}
+.dl{position:fixed;right:18px;bottom:18px;z-index:5;display:inline-flex;align-items:center;height:44px;padding:0 18px;border-radius:999px;background:#bff000;color:#16160f;font-weight:800;font-size:14px;text-decoration:none;box-shadow:0 8px 24px rgba(0,0,0,.15)}
+@media print{.dl{display:none}body{padding:0!important;background:#fff!important}}
+@media print{#fit{transform:none!important;height:auto!important}}
+</style></head><body>
+<a class="dl" href="agit-cigarette-report-2026-11.pdf" download="아지트_관리화단_담배꽁초_보고서_2026-11.pdf">PDF 받기</a>
+<div id="fitbox"><div id="fit"><div id="out"></div></div></div>
+<script>
+/* ── 데이터: 아지트 가드너 현장 이슈 5건 + 현장 보고 2건 (11/19 1층 같은 날 중복 1건 제외) ── */
+var D=[
+ {d:"10/20",w:"화",fl:"2층",p:"어린이집 화단",n:5,who:"현장 보고",act:"수거",img:"photos/1020-2f-kids.jpg",pos:"50% 55%"},
+ {d:"10/21",w:"수",fl:"1층",p:"공용부 화단",n:1,who:"현장 보고",act:"수거",img:"photos/1021-1f.jpg",pos:"45% 30%"},
+ {d:"11/03",w:"화",fl:"2층",p:"아지뜰 맞은편 삼각형 화단",n:1,who:"올리버",act:"담당자 공유",done:"11/4",img:"photos/1103-oliver-before2.jpg",pos:"50% 45%",wide:"photos/1103-oliver-before1.jpg",nth:1},
+ {d:"11/10",w:"화",fl:"2층",p:"아지뜰 맞은편 삼각형 화단",n:1,who:"엘리",act:"18분 뒤 수거",done:"11/10",img:"photos/1110-ellie-before1.jpg",pos:"50% 60%",nth:2},
+ {d:"11/17",w:"화",fl:"2층",p:"아지뜰 맞은편 삼각형 화단",n:3,who:"엘리",act:"바로 수거 · 음료 찌꺼기 함께",done:"11/17",img:"photos/1117-ellie-before2.jpg",pos:"50% 35%",nth:3},
+ {d:"11/19",w:"목",fl:"1층",p:"정문정원",n:1,who:"파인",act:"바로 수거",done:"11/19",img:"photos/1119-pine-before1-crop.jpg",pos:"50% 50%",after:"photos/1119-pine-after1.jpg"},
+ {d:"11/20",w:"금",fl:"5층",p:"외부 화단",n:1,who:"올리버",act:"바로 수거",done:"11/20",img:"photos/1120-oliver-before1.jpg",pos:"50% 40%"}];
+var HEAD='<div class="hd"><div><p class="eb">CIGARETTE BUTT REPORT</p><h3>아지트 관리 화단 담배꽁초 발견 보고서</h3><p class="m">카카오 아지트 · 주식회사 링키지랩 스낵앤가든사업팀 · 10/20 ~ 11/20 · 2026.11.23 작성</p></div>'
+ +'</div>';
+var KPI='<div class="kpi"><div><span>발견</span><b>7<small>건</small></b><em>현장 이슈 5 · 현장 보고 2</em></div><div><span>꽁초</span><b>13<small>개+</small></b><em>한 번에 최대 5개</em></div>'
+ +'<div><span>당일 수거</span><b>100<small>%</small></b><em>7건 모두 발견한 날</em></div><div><span>같은 자리 재발</span><b>2<small>건</small></b><em>2층 삼각형 화단 3번째</em></div><div><span>2층 화단</span><b>4<small>건</small></b><em>모두 화요일 아침</em></div></div>';
+var SUM='<div class="sum"><h4>한눈에 보기</h4><ul><li>10/20 ~ 11/20 관리 화단 담배꽁초 7회 발견(13개 이상), 전 건 발견 당일 수거 완료.</li>'
+ +'<li><mark class="hl"><b>2층 아지뜰 맞은편 삼각형 화단</b> 11/03 · 11/10 · 11/17 3주 연속 발견 (같은 자리 재발 2건).</mark></li>'
+ +'<li>2층 4건 모두 화요일 오전 발견 — 주말·월요일 중 투기 추정 (순찰 요일 영향 가능성 있음).</li>'
+ +'<li>1층 정문정원·공용부 2건, 5층 외부 화단 1건은 반복 발생 없음.</li></ul></div>';
+var ASK='<div class="ask"><h4 style="margin:0">검토 요청 사항</h4><ol><li>2층 삼각형 화단 금연 안내 표지 설치</li><li>가까운 흡연 구역 안내</li><li>가든 팀: 화요일 아침 2층 삼각형 화단 우선 확인 · 계속 위치 이력 기록</li></ol></div>';
+var FT='<div class="ft"><span>출처 · 아지트 가드너 현장 이슈(사진 포함) + 현장 보고 2건 · 같은 날 같은 곳 중복 1건 제외</span><span>KAKAO × LINKAGELAB</span></div>';
+function tbl(o){o=o||{};return '<table class="tbl"><tr><th>발견</th><th>층</th><th>자리</th><th class="r">꽁초</th><th>발견</th><th>조치</th><th class="r">상태</th></tr>'+D.map(function(x){
+  return '<tr><td class="nw">'+x.d+' <span class="mu">'+x.w+'</span></td><td class="nw">'+x.fl+'</td><td>'+x.p+(x.nth>1?' <span class="red">재발</span>':'')+'</td><td class="r"><b>'+x.n+'</b></td><td class="nw">'+x.who+'</td><td class="mu">'+x.act+'</td><td class="r st">완료 '+(x.done||x.d)+'</td></tr>'}).join("")+'</table>'}
+function ph(x,h,o){o=o||{};return '<div><div class="ph" style="height:'+h+'px"><img src="'+(o.src||x.img)+'" style="object-position:'+(o.pos||x.pos)+'">'
+  +'<span class="chip'+(x.nth?' l':'')+'">'+x.d+' '+x.w+' · '+x.fl+'</span>'+(x.nth>1?'<span class="nth">'+x.nth+'번째</span>':'')+(o.ba?'<span class="ba">'+o.ba+'</span>':'')+'</div>'
+  +(o.nocap?'':'<div class="cap"><b>'+x.p+'</b> · '+x.n+'개 · '+x.who+'</div>')+'</div>'}
+var S=[];
+
+/* ① 사진 갤러리: 숫자 → 한눈에 → 사진 7장(4+3) → 표 */
+S.push({t:"① 사진 갤러리",d:"보고서 그대로에 사진 7장을 2줄로. 표는 맨 아래 한 번 — 가장 보고서다움",h:HEAD+KPI+SUM
+ +'<div class="sec"><h4>현장 사진 <small>발견 순 · 7건</small></h4><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">'+D.slice(0,4).map(function(x){return ph(x,158)}).join("")+'</div>'
+ +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px">'+D.slice(4).map(function(x){return ph(x,150)}).join("")+'</div></div>'
+ +'<div class="sec"><h4>발견 기록 <small>7건 · 발견 순</small></h4>'+tbl()+'</div>'+FT});
+
+/* ② 같은 자리 이력: 2층 삼각형 화단 1·2·3번째 크게 + 나머지 위치 */
+var tri=D.filter(function(x){return x.nth}),etc=D.filter(function(x){return !x.nth});
+S.push({t:"② 같은 자리 이력",d:"식물 이슈 화면의 '이 자리 이력 · n번째'처럼 2층 삼각형 화단 3번을 한 줄로 크게, 나머지 4곳은 아래 작게",h:HEAD+KPI
+ +'<div class="sec" style="border-top:0;padding-top:0"><h4>2층 아지뜰 맞은편 삼각형 화단 <small>같은 자리 3번 · 3주 연속 화요일</small> <span class="red" style="margin-left:auto">재발 2</span></h4>'
+ +'<div style="display:grid;grid-template-columns:1.25fr 1fr 1fr 1fr;gap:10px">'+ph(tri[0],236,{src:tri[0].wide,pos:"40% 60%",nocap:1})+tri.map(function(x){return ph(x,236)}).join("")+'</div>'
+ +'<p class="cap" style="margin-top:4px">맨 왼쪽: 자리 전경 (11/03 올리버)</p></div>'
+ +'<div class="sec"><h4>다른 자리 <small>아직 반복 없음</small></h4><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">'+etc.map(function(x){return ph(x,150)}).join("")+'</div></div>'
+ +'<div class="sec"><h4>발견 기록</h4>'+tbl()+'</div>'+FT});
+
+/* ③ 대표 사진 크게: 11/17 3개 사진을 위 절반, 옆에 숫자 세로 */
+S.push({t:"③ 대표 사진 크게",d:"꽁초 3개가 나온 11/17 사진 한 장을 크게 — 보는 순간 문제가 보임. 숫자는 옆에 세로로",h:HEAD
+ +'<div style="display:grid;grid-template-columns:1fr 200px;gap:12px;margin-bottom:14px"><div><div class="ph" style="height:372px"><img src="'+D[4].img+'" style="object-position:50% 40%"><span class="chip l" style="font-size:11.5px;padding:4px 10px">11/17 화 · 2층 삼각형 화단 · 꽁초 3개</span><span class="nth" style="font-size:11.5px">같은 자리 3번째</span></div></div>'
+ +'<div class="kpi" style="grid-template-columns:1fr;margin:0;grid-auto-rows:1fr"><div><span>발견</span><b>7<small>건</small></b><em>현장 이슈 5 · 현장 보고 2</em></div><div><span>꽁초</span><b>13<small>개+</small></b><em>한 번에 최대 5개</em></div><div><span>같은 자리 재발</span><b>2<small>건</small></b><em>2층 삼각형 화단</em></div><div><span>당일 수거</span><b>100<small>%</small></b><em>7건 모두</em></div></div></div>'
+ +'<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:14px">'+D.filter(function(x,i){return i!==4}).map(function(x){return ph(x,112,{nocap:1})}).join("")+'</div>'
+ +SUM+'<div class="sec"><h4>발견 기록</h4>'+tbl()+'</div>'+FT});
+
+/* ④ 세로 타임라인: 발견 → 조치 단계 (이슈 상세 화면 흐름) + 큰 사진 */
+S.push({t:"④ 세로 타임라인",d:"이슈 상세 화면의 발견 → 조치 → 완료 흐름을 세로로. 날짜마다 사진 한 장씩 큼직하게, 표 없이 이 자체가 기록",h:HEAD+KPI
+ +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 18px;margin-bottom:14px">'+D.map(function(x,i){
+   return '<div style="display:grid;grid-template-columns:150px minmax(0,1fr);gap:10px;align-items:stretch;border-top:1px solid var(--pl);padding-top:10px">'
+   +'<div class="ph" style="height:150px"><img src="'+x.img+'" style="object-position:'+x.pos+'"></div>'
+   +'<div style="min-width:0"><div style="display:flex;align-items:center;gap:6px"><span style="width:20px;height:20px;border-radius:50%;background:'+(x.nth?'var(--lime)':'var(--pi)')+';color:'+(x.nth?'var(--pi)':'#fff')+';display:grid;place-items:center;font-size:10px;font-weight:800">'+(i+1)+'</span><b style="font-size:13px">'+x.d+' <span style="color:var(--pi3);font-weight:700">'+x.w+'</span></b>'+(x.nth>1?'<span class="red" style="margin-left:auto">재발 · '+x.nth+'번째</span>':'')+'</div>'
+   +'<div style="margin-top:6px;font-weight:800;font-size:12.5px">'+x.fl+' '+x.p+'</div><div style="margin-top:4px;color:var(--pi2)">꽁초 '+x.n+'개 · 발견 '+x.who+'</div>'
+   +'<div style="margin-top:8px;background:var(--pb);border-radius:8px;padding:5px 8px;font-size:11px"><b>조치</b> '+x.act+' <span style="color:var(--pi3)">· 완료 '+(x.done||x.d)+'</span></div></div></div>'}).join("")
+ +'<div style="border-top:1px solid var(--pl);padding-top:10px">'+ASK+'</div></div>'+SUM+FT});
+
+/* ⑤ 위치별 + 전·후: 위치 막대 + 층별 사진 묶음 + 파인 조치 전·후 */
+S.push({t:"⑤ 위치별 묶음 + 조치 전·후",d:"층별로 사진을 묶고, 1층은 조치 전·후 사진을 나란히. 위치 막대로 2층 쏠림을 보여줌",h:HEAD+KPI
+ +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:4px"><div class="sec" style="margin:0"><h4>위치별 <small>건수</small></h4>'
+ +'<div class="row"><span>2층 삼각형 화단</span><div class="bar"><i class="v" style="width:75%"></i></div><b>3</b></div><div class="row"><span>2층 어린이집 화단</span><div class="bar"><i class="v" style="width:25%"></i></div><b>1</b></div>'
+ +'<div class="row"><span>1층 정문정원·공용부</span><div class="bar"><i style="width:50%"></i></div><b>2</b></div><div class="row"><span>5층 외부 화단</span><div class="bar"><i style="width:25%"></i></div><b>1</b></div></div>'
+ +'<div class="sec" style="margin:0">'+ASK.replace('class="ask"','class="ask" style="height:100%"')+'</div></div>'
+ +'<div class="sec"><h4>2층 <small>4건 · 꽁초 10개 · 모두 화요일</small></h4><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">'+[D[0],D[2],D[3],D[4]].map(function(x){return ph(x,154)}).join("")+'</div></div>'
+ +'<div style="display:grid;grid-template-columns:2fr 1fr;gap:14px"><div class="sec"><h4>1층 <small>2건 · 정문정원은 조치 전·후</small></h4><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">'
+ +ph(D[1],138)+ph(D[5],138,{ba:"조치 전"})+ph(D[5],138,{src:D[5].after,pos:"50% 50%",ba:"조치 후",nocap:1})+'</div></div>'
+ +'<div class="sec"><h4>5층 <small>1건</small></h4>'+ph(D[6],138)+'</div></div>'
+ +'<div class="sec" style="margin-bottom:8px"><h4>발견 기록</h4>'+tbl()+'</div>'+FT});
+
+document.getElementById("out").innerHTML='<section class="a4" id="P">'+S[2].h+'</section>';
+function fit(){var w=document.documentElement.clientWidth,k=Math.min(1,(w-24)/794),f=document.getElementById("fit"),b=document.getElementById("fitbox");
+ f.style.transform="scale("+k+")";f.style.width="794px";b.style.height=(1123*k)+"px";b.style.width=(794*k)+"px";b.style.margin="0 auto";
+ document.querySelector(".a4").style.margin="0";}
+fit();addEventListener("resize",fit);
+</script>
+</body></html>
