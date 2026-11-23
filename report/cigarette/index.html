@@ -82,7 +82,7 @@ var D=[
  {d:"11/10",w:"화",fl:"2층",p:"아지뜰 맞은편 삼각형 화단",n:1,who:"엘리",act:"18분 뒤 수거",done:"11/10",img:"photos/1110-ellie-before1.jpg",pos:"50% 60%",nth:2},
  {d:"11/17",w:"화",fl:"2층",p:"아지뜰 맞은편 삼각형 화단",n:3,who:"엘리",act:"바로 수거 · 음료 찌꺼기 함께",done:"11/17",img:"photos/1117-ellie-before2.jpg",pos:"50% 35%",nth:3},
  {d:"11/19",w:"목",fl:"1층",p:"정문정원",n:1,who:"파인",act:"바로 수거",done:"11/19",img:"photos/1119-pine-before1-crop.jpg",pos:"50% 50%",after:"photos/1119-pine-after1.jpg"},
- {d:"11/20",w:"금",fl:"5층",p:"외부 화단",n:1,who:"올리버",act:"바로 수거",done:"11/20",img:"photos/1120-oliver-before1.jpg",pos:"50% 40%"}];
+ {d:"11/20",w:"금",fl:"5층",p:"외부 브릿지 화단",n:1,who:"올리버",act:"바로 수거",done:"11/20",img:"photos/1120-oliver-before1.jpg",pos:"50% 40%"}];
 var HEAD='<div class="hd"><div><p class="eb">CIGARETTE BUTT REPORT</p><h3>아지트 관리 화단 담배꽁초 발견 보고서</h3><p class="m">카카오 아지트 · 링키지랩 스낵앤가든사업팀 · 10/20 ~ 11/20 · 2026.11.23 작성</p></div>'
  +'</div>';
 var KPI='<div class="kpi"><div><span>발견</span><b>7<small>건</small></b><em>현장 이슈 5 · 현장 보고 2</em></div><div><span>꽁초</span><b>13<small>개+</small></b><em>한 번에 최대 5개</em></div>'
@@ -90,7 +90,7 @@ var KPI='<div class="kpi"><div><span>발견</span><b>7<small>건</small></b><em>
 var SUM='<div class="sum"><h4>한눈에 보기</h4><ul><li>10/20 ~ 11/20 관리 화단 담배꽁초 7회 발견(13개 이상), 전 건 발견 당일 수거 완료.</li>'
  +'<li><mark class="hl"><b>2층 아지뜰 맞은편 삼각형 화단</b> 11/03 · 11/10 · 11/17 3주 연속 발견 (같은 자리 재발 2건).</mark></li>'
  +'<li>2층 4건 모두 화요일 오전 발견 — 주말·월요일 중 투기 추정 (순찰 요일 영향 가능성 있음).</li>'
- +'<li>1층 정문정원·공용부 2건, 5층 외부 화단 1건은 반복 발생 없음.</li></ul></div>';
+ +'<li>1층 정문정원·공용부 2건, 5층 외부 브릿지 화단 1건은 반복 발생 없음.</li></ul></div>';
 var ASK='<div class="ask"><h4 style="margin:0">검토 요청 사항</h4><ol><li>2층 삼각형 화단 금연 안내 표지 설치</li><li>가까운 흡연 구역 안내</li><li>가든 팀: 화요일 아침 2층 삼각형 화단 우선 확인 · 계속 위치 이력 기록</li></ol></div>';
 var FT='<div class="ft"><span>출처 · 아지트 가드너 현장 이슈(사진 포함) + 현장 보고 2건 · 같은 날 같은 곳 중복 1건 제외</span><span>KAKAO × LINKAGELAB</span></div>';
 function tbl(o){o=o||{};return '<table class="tbl"><tr><th>발견</th><th>층</th><th>자리</th><th class="r">꽁초</th><th>발견</th><th>조치</th><th class="r">상태</th></tr>'+D.map(function(x){
@@ -136,7 +136,7 @@ S.push({t:"④ 세로 타임라인",d:"이슈 상세 화면의 발견 → 조치
 S.push({t:"⑤ 위치별 묶음 + 조치 전·후",d:"층별로 사진을 묶고, 1층은 조치 전·후 사진을 나란히. 위치 막대로 2층 쏠림을 보여줌",h:HEAD+KPI
  +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:4px"><div class="sec" style="margin:0"><h4>위치별 <small>건수</small></h4>'
  +'<div class="row"><span>2층 삼각형 화단</span><div class="bar"><i class="v" style="width:75%"></i></div><b>3</b></div><div class="row"><span>2층 어린이집 화단</span><div class="bar"><i class="v" style="width:25%"></i></div><b>1</b></div>'
- +'<div class="row"><span>1층 정문정원·공용부</span><div class="bar"><i style="width:50%"></i></div><b>2</b></div><div class="row"><span>5층 외부 화단</span><div class="bar"><i style="width:25%"></i></div><b>1</b></div></div>'
+ +'<div class="row"><span>1층 정문정원·공용부</span><div class="bar"><i style="width:50%"></i></div><b>2</b></div><div class="row"><span>5층 외부 브릿지 화단</span><div class="bar"><i style="width:25%"></i></div><b>1</b></div></div>'
  +'<div class="sec" style="margin:0">'+ASK.replace('class="ask"','class="ask" style="height:100%"')+'</div></div>'
  +'<div class="sec"><h4>2층 <small>4건 · 꽁초 10개 · 모두 화요일</small></h4><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">'+[D[0],D[2],D[3],D[4]].map(function(x){return ph(x,154)}).join("")+'</div></div>'
  +'<div style="display:grid;grid-template-columns:2fr 1fr;gap:14px"><div class="sec"><h4>1층 <small>2건 · 정문정원은 조치 전·후</small></h4><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">'
