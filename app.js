@@ -52,6 +52,7 @@ const I = {
   heart: '<svg class="i" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z"/></svg>',
   send: '<svg class="i" viewBox="0 0 24 24"><path d="M4 12 20 4l-4 16-4-7z"/><path d="m12 13 8-9"/></svg>',
   cmp: '<svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M12 3v18"/></svg>',
+  sprout: '<svg class="i" viewBox="0 0 24 24"><path d="M7 21h10M12 21v-8"/><path d="M12 13c0-4.5 3-7.5 8-7.5 0 4.5-3 7.5-8 7.5z"/><path d="M12 15.5c0-3.4-2.4-6-6.5-6 0 3.4 2.4 6 6.5 6z"/></svg>',
   book: '<svg class="i" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/><path d="M9 8h7"/></svg>',
   key: '<svg class="i" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 12 8.5-8.5M16 7l2.5 2.5M14 9l2 2"/></svg>',
   bell: '<svg class="i" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/></svg>',
@@ -528,7 +529,7 @@ const MGR_VIEWS = ["assign", "admin"];
 const locked = k => !ASSIGN_ON && ["me", "all", "assign"].includes(k);
 const navAttr = k => locked(k) ? 'aria-disabled="true" class="is-off" title="준비 중이에요"' : S.view === k ? 'aria-current="page"' : "";
 function navItems() {
-  const items = [["me", "내 업무", I.me, "내 업무"], ["all", "전체 보기", I.all, "전체"], ["issues", "현장 이슈", I.issue, "현장 이슈"], ["heat", "체감 온도 기록", I.heat, "체감 온도"], ["rest", "일정 공유", I.cal, "일정"], ["edu", "교육 자료", I.book, "교육"]];
+  const items = [["me", "내 업무", I.me, "내 업무"], ["all", "전체 보기", I.all, "전체"], ["issues", "현장 이슈", I.issue, "현장 이슈"], ["heat", "체감 온도 기록", I.heat, "체감 온도"], ["rest", "일정 공유", I.cal, "일정"], ["plants", "아지트 식물", I.sprout, "식물"], ["edu", "교육 자료", I.book, "교육"]];
   if (isMgr()) items.push(["assign", "업무 배정", I.assign, "배정"]);
   if (isAdmin()) items.push(["admin", "관리자 설정", I.team, "설정"]);
   return items;
@@ -536,7 +537,7 @@ function navItems() {
 function render() {
   if (!S.board) return;
   const me = S.board.me, nav = navItems();
-  const views = { me: viewMe, all: viewAll, issues: viewIssues, heat: viewHeat, rest: viewRest, edu: () => "", assign: viewAssign, admin: viewAdmin };
+  const views = { me: viewMe, all: viewAll, issues: viewIssues, heat: viewHeat, rest: viewRest, plants: () => window.AGP ? AGP.view() : "", edu: () => "", assign: viewAssign, admin: viewAdmin };
   if (!nav.some(([k]) => k === S.view) || locked(S.view)) S.view = firstView(me);
   const badge = k => k !== "issues" ? "" : S.news?.count ? `<span class="badge badge--news num" title="새 소식">${I.heart}${S.news.count}</span>`
     : S.issues?.open_all ? `<span class="badge num">${S.issues.open_all}</span>` : "";
@@ -1202,6 +1203,7 @@ async function heatSave() {
 function renderSheet() {
   const s = S.sheet;
   if (s.type === "heat") return heatSheet();
+  if (s.type === "plant") return window.AGP ? AGP.sheet() : "";
   if (s.type === "rest") return restSheet();
   if (s.type === "kind") return `<div class="scrim" data-act="close"></div><section class="sheet sheet--sm" role="dialog" aria-modal="true" aria-label="무엇을 등록할까요?">
     <div class="sheet__h"><div><h2>무엇을 등록할까요?</h2></div><button class="x" data-act="close" aria-label="닫기">${I.x}</button></div>
@@ -1352,6 +1354,7 @@ function syncSheetFields() {
 
 // ── 동작 ──
 async function act(a, el) {
+  if (a.startsWith("pg-") && window.AGP?.act(a, el)) return;
   try {
     switch (a) {
       case "reload": location.reload(); break;
@@ -1714,5 +1717,6 @@ document.addEventListener("visibilitychange", () => {
   tick();
 });
 
+window.AGP?.init({ S, render, esc, I, toast });
 boot();
 })();
